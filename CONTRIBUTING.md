@@ -93,9 +93,9 @@ We welcome many types of contributions:
 1. **Sync Your Fork**
 
    ```bash
-   git checkout main
+   git checkout dev
    git fetch upstream
-   git merge upstream/main
+   git merge upstream/dev
    ```
 
 2. **Create a Feature Branch**
