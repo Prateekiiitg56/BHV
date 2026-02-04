@@ -4,6 +4,7 @@ from typing import Optional, List, Dict
 from git import Repo, Actor
 
 from .base import StorageAdapter
+from .errors import Conflict
 
 
 class GitAdapter(StorageAdapter):
@@ -17,20 +18,17 @@ class GitAdapter(StorageAdapter):
     def __init__(self, root_dir: str):
         self.root_dir = os.path.abspath(root_dir)
         os.makedirs(self.root_dir, exist_ok=True)
-        self._repos = {}  # cache patient_id -> Repo
         self._locks = {}  # patient_id -> threading.Lock
 
     def _ensure_repo(self, patient_id: str) -> Repo:
         repo_path = os.path.join(self.root_dir, patient_id)
-        if patient_id not in self._repos:
-            os.makedirs(repo_path, exist_ok=True)
-            if not os.path.exists(os.path.join(repo_path, '.git')):
-                repo = Repo.init(repo_path)
-            else:
-                repo = Repo(repo_path)
-            self._repos[patient_id] = repo
+        os.makedirs(repo_path, exist_ok=True)
+        if not os.path.exists(os.path.join(repo_path, '.git')):
+            Repo.init(repo_path)
+        # return a fresh Repo object to avoid long-lived file handles on Windows
+        if patient_id not in self._locks:
             self._locks[patient_id] = threading.Lock()
-        return self._repos[patient_id]
+        return Repo(repo_path)
 
     def save(self, relative_path: str, data: bytes, user_id: str, action: str, message: Optional[str] = None) -> str:
         # relative_path expected: '<patient_id>/path/to/file.ext'
@@ -43,7 +41,27 @@ class GitAdapter(StorageAdapter):
         full_path = os.path.join(repo.working_tree_dir, *parts[1:])
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
+        # Default save uses no parent check
+        return self.save_with_parent(relative_path, data, user_id, action, parent=None, message=message)
+
+    def save_with_parent(self, relative_path: str, data: bytes, user_id: str, action: str, parent: Optional[str] = None, message: Optional[str] = None) -> str:
+        parts = relative_path.split(os.sep)
+        patient_id = parts[0]
+        repo = self._ensure_repo(patient_id)
+        lock = self._locks[patient_id]
+        full_path = os.path.join(repo.working_tree_dir, *parts[1:])
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
         with lock:
+            # optimistic locking: if parent provided, ensure HEAD matches
+            try:
+                head = repo.head.commit.hexsha
+            except Exception:
+                head = None
+
+            if parent is not None and parent != head:
+                raise Conflict(f"Conflict: expected parent {parent} but head is {head}")
+
             with open(full_path, 'wb') as f:
                 f.write(data)
 
@@ -89,3 +107,14 @@ class GitAdapter(StorageAdapter):
                 'datetime': c.committed_datetime.isoformat(),
             })
         return result
+
+    def head(self, relative_path: str) -> Optional[str]:
+        parts = relative_path.split(os.sep)
+        if len(parts) < 2:
+            raise ValueError("relative_path must start with '<patient_id>/...'")
+        patient_id = parts[0]
+        repo = self._ensure_repo(patient_id)
+        try:
+            return repo.head.commit.hexsha
+        except Exception:
+            return None
