@@ -1,7 +1,6 @@
 # GitHub Actions Workflow for Python Linting
 # This workflow runs linting tools on Python code
 # Triggered by: push, pull_request, and /lint command via PR comments
-
 name: Python Lint
 
 on:

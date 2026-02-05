@@ -1,7 +1,6 @@
 # GitHub Actions Workflow for Prow Command Handling
 # This workflow handles various Prow-style commands on issues and pull requests
 # Supports commands like /assign, /kind, /priority, /area, /close, /reopen, etc.
-
 name: Prow Commands
 
 on:
@@ -113,7 +112,7 @@ jobs:
               // /assign command - assign users to issue/PR
               if (command === '/assign') {
                 if (!isOrgMember) {
-                  responses.push('❌ You must be an organization member to use `/assign`');
+                  responses.push('You must be an organization member to use `/assign`');
                   continue;
                 }
 
