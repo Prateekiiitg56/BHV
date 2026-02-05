@@ -1,0 +1,162 @@
+# Prow Labels Configuration for BHV (Behavioral Health Vault)
+# This file defines labels that can be used with /kind, /area, /priority commands
+
+labels:
+  # Issue/PR kinds
+  - name: kind/bug
+    color: d73a4a
+    description: Categorizes issue or PR as related to a bug
+
+  - name: kind/feature
+    color: 0e8a16
+    description: Categorizes issue or PR as related to a new feature
+
+  - name: kind/enhancement
+    color: a2eeef
+    description: Categorizes issue or PR as related to an enhancement
+
+  - name: kind/documentation
+    color: 0075ca
+    description: Categorizes issue or PR as related to documentation
+
+  - name: kind/question
+    color: d876e3
+    description: Categorizes issue or PR as a question
+
+  - name: kind/cleanup
+    color: fef2c0
+    description: Categorizes issue or PR as related to code cleanup
+
+  - name: kind/security
+    color: ee0701
+    description: Categorizes issue or PR as related to security
+
+  - name: kind/performance
+    color: fbca04
+    description: Categorizes issue or PR as related to performance
+
+  # Priority levels
+  - name: priority/p0
+    color: b60205
+    description: Critical priority - must be fixed immediately
+
+  - name: priority/p1
+    color: d93f0b
+    description: High priority - fix soon
+
+  - name: priority/p2
+    color: fbca04
+    description: Medium priority - normal timeline
+
+  - name: priority/p3
+    color: 0e8a16
+    description: Low priority - nice to have
+
+  # Component areas
+  - name: area/api
+    color: 5319e7
+    description: Issues or PRs related to API
+
+  - name: area/auth
+    color: 5319e7
+    description: Issues or PRs related to authentication/authorization
+
+  - name: area/database
+    color: 5319e7
+    description: Issues or PRs related to database
+
+  - name: area/frontend
+    color: 5319e7
+    description: Issues or PRs related to frontend/UI
+
+  - name: area/storage
+    color: 5319e7
+    description: Issues or PRs related to file storage
+
+  - name: area/testing
+    color: 5319e7
+    description: Issues or PRs related to testing
+
+  - name: area/ci-cd
+    color: 5319e7
+    description: Issues or PRs related to CI/CD
+
+  - name: area/documentation
+    color: 5319e7
+    description: Issues or PRs related to documentation
+
+  - name: area/security
+    color: 5319e7
+    description: Issues or PRs related to security
+
+  # Workflow labels
+  - name: lgtm
+    color: 15dd18
+    description: Indicates that a PR looks good to me, ready to merge
+
+  - name: approved
+    color: 0e8a16
+    description: Indicates a PR has been approved by a maintainer
+
+  - name: do-not-merge/hold
+    color: d93f0b
+    description: Indicates that a PR should not merge because someone has issued a /hold command
+
+  - name: do-not-merge/work-in-progress
+    color: d93f0b
+    description: Indicates that a PR should not merge because it is a work in progress
+
+  - name: needs-rebase
+    color: fbca04
+    description: Indicates a PR cannot be merged because it has merge conflicts
+
+  - name: needs-info
+    color: fbca04
+    description: Indicates an issue or PR needs more information
+
+  # Size labels (auto-generated based on lines changed)
+  - name: size/XS
+    color: 009900
+    description: PR with very few changes
+
+  - name: size/S
+    color: 77bb00
+    description: PR with small changes
+
+  - name: size/M
+    color: eebb00
+    description: PR with medium changes
+
+  - name: size/L
+    color: ee9900
+    description: PR with large changes
+
+  - name: size/XL
+    color: ee5500
+    description: PR with very large changes
+
+  - name: size/XXL
+    color: ee0000
+    description: PR with massive changes
+
+  # Contributor labels
+  - name: good-first-issue
+    color: 7057ff
+    description: Good for newcomers
+
+  - name: help-wanted
+    color: 008672
+    description: Extra attention is needed
+
+  # Lifecycle labels
+  - name: lifecycle/frozen
+    color: d3e2f0
+    description: Indicates that an issue or PR should not be auto-closed
+
+  - name: lifecycle/stale
+    color: eeeeee
+    description: Denotes an issue or PR has remained open with no activity
+
+  - name: lifecycle/rotten
+    color: cccccc
+    description: Denotes an issue or PR that has aged beyond stale
