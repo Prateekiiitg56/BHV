@@ -1,6 +1,6 @@
 import os
 import re
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash, Response
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -32,13 +32,52 @@ def create_app(testing: bool = False, upload_folder: str = None):
     if testing:
         app.config['TESTING'] = True
         app.config['WTF_CSRF_ENABLED'] = False
-    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+    # Allow overriding secure cookie behavior for local testing.
+    # If SESSION_COOKIE_SECURE is set in the environment, honor it (1/true/yes = True).
+    env_secure = os.environ.get('SESSION_COOKIE_SECURE')
+    if env_secure is not None:
+        app.config['SESSION_COOKIE_SECURE'] = str(env_secure).lower() in ('1', 'true', 'yes')
+    else:
+        app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
+
+    # Optional verbose request logging for debugging upload/CSRF issues.
+    # Enable with `BHV_REQUEST_DEBUG=1`.
+    app.config['REQUEST_DEBUG'] = str(os.environ.get('BHV_REQUEST_DEBUG', '')).lower() in ('1', 'true', 'yes')
     
+    if app.config['REQUEST_DEBUG']:
+        # Install a small WSGI middleware to log raw request headers and cookies
+        # BEFORE other Flask before_request handlers (CSRFProtect registers a before_request).
+        original_wsgi = app.wsgi_app
+
+        def _logging_middleware(environ, start_response):
+            try:
+                method = environ.get('REQUEST_METHOD')
+                path = environ.get('PATH_INFO', '')
+                if method == 'POST' and path.startswith('/upload'):
+                    print('---MW /upload START---')
+                    # print some useful request metadata available at WSGI level
+                    print('REQUEST_METHOD:', method)
+                    print('PATH_INFO:', path)
+                    print('CONTENT_TYPE:', environ.get('CONTENT_TYPE'))
+                    print('CONTENT_LENGTH:', environ.get('CONTENT_LENGTH'))
+                    print('HTTP_COOKIE:', environ.get('HTTP_COOKIE'))
+                    # print a few header-like env vars
+                    for k, v in environ.items():
+                        if k.startswith('HTTP_'):
+                            print(f"{k}: {v}")
+                    print('---MW /upload END---')
+            except Exception as _e:
+                print('Logging middleware error:', _e)
+            return original_wsgi(environ, start_response)
+
+        app.wsgi_app = _logging_middleware
     csrf = CSRFProtect(app)
     google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
+    # Expose Google client id to templates so the Google Identity button gets the client id
+    app.config['GOOGLE_CLIENT_ID'] = google_client_id or ''
 
     # init DB
     init_db()
@@ -56,13 +95,37 @@ def create_app(testing: bool = False, upload_folder: str = None):
 
     @app.route('/')
     def index():
-        user = current_user()
-        if user:
-            if user.get('role') == 'admin':
-                return redirect(url_for('admin'))
-            else:
-                return redirect(url_for('my_entries'))
         return render_template('home.html')
+
+
+    @app.route('/dashboard')
+    def dashboard():
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+        if user.get('role') == 'admin':
+            return redirect(url_for('admin'))
+        return redirect(url_for('my_entries'))
+
+
+    @app.route('/features')
+    def features():
+        return render_template('features.html')
+
+
+    @app.route('/how-it-works')
+    def how_it_works():
+        return render_template('how_it_works.html')
+
+
+    @app.route('/testimonials')
+    def testimonials():
+        return render_template('testimonials.html')
+
+
+    @app.route('/contact')
+    def contact():
+        return render_template('contact.html')
 
 
     @app.route('/profile')
@@ -166,6 +229,20 @@ def create_app(testing: bool = False, upload_folder: str = None):
         if not user:
             return redirect(url_for('login'))
         if request.method == 'POST':
+            if app.config.get('REQUEST_DEBUG'):
+                # DEBUG: print headers/cookies/form to help diagnose missing CSRF/session issues
+                try:
+                    print('---DEBUG /upload START---')
+                    print('Request Headers:')
+                    for k, v in request.headers.items():
+                        print(f"{k}: {v}")
+                    print('Request Cookies:')
+                    for k, v in request.cookies.items():
+                        print(f"{k}: {v}")
+                    print('Form keys:', list(request.form.keys()))
+                    print('---DEBUG /upload END---')
+                except Exception as _e:
+                    print('DEBUG logging failed:', _e)
             f = request.files.get('file')
             narrative = request.form.get('narrative', '')
             if not f:

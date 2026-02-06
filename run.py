@@ -16,7 +16,11 @@ from bhv.full_app import create_app
 def main():
     port = int(os.environ.get('PORT', 5000))
     app = create_app()
-    app.run(host='0.0.0.0', port=port, debug=True)
+    # Respect FLASK_ENV to determine debug/reloader behavior
+    flask_env = os.environ.get('FLASK_ENV', 'development')
+    is_production = flask_env == 'production'
+    # In production mode we explicitly disable the debugger and reloader
+    app.run(host='0.0.0.0', port=port, debug=not is_production, use_reloader=not is_production)
 
 
 if __name__ == '__main__':

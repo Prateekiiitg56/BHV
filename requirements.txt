@@ -6,5 +6,8 @@ flask-wtf>=1.0
 flask-oauthlib>=0.9
 google-auth-oauthlib>=1.0
 
+# Test runner
+pytest>=7.0
+
 # Embedded DB fallback for single-command installs
 tinydb>=4.7
