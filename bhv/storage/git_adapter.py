@@ -69,6 +69,21 @@ class GitAdapter(StorageAdapter):
             actor = Actor("BHV System", "no-reply@example.com")
             commit_message = message or f"{action} by user {user_id} on {relative_path}"
             commit = repo.index.commit(commit_message, author=actor, committer=actor)
+            # Ensure HEAD points to a branch that exists. Some environments
+            # may have a mismatched HEAD symbolic ref (e.g. refs/heads/main)
+            # which can cause later repo.head access to fail. Create a
+            # 'main' branch pointing to this commit if necessary and ensure
+            # HEAD references it.
+            try:
+                _ = repo.head.commit.hexsha
+            except Exception:
+                try:
+                    if 'main' not in [h.name for h in repo.heads]:
+                        repo.create_head('main', commit)
+                    repo.head.reference = repo.heads['main']
+                except Exception:
+                    # best-effort; if this fails, continue and return commit
+                    pass
             return commit.hexsha
 
     def get(self, relative_path: str, version: Optional[str] = None) -> bytes:
@@ -95,7 +110,12 @@ class GitAdapter(StorageAdapter):
         patient_id = parts[0]
         repo = self._ensure_repo(patient_id)
         rel_path = os.path.join(*parts[1:])
-        commits = list(repo.iter_commits(paths=rel_path))
+        # Use --all to avoid relying on a valid HEAD symbolic ref which
+        # can be inconsistent in some environments (refs/heads/main vs master).
+        try:
+            commits = list(repo.iter_commits(rev='--all', paths=rel_path))
+        except Exception:
+            commits = list(repo.iter_commits(paths=rel_path))
         # chronological (oldest first)
         commits.reverse()
         result = []

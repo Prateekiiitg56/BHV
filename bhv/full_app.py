@@ -20,12 +20,18 @@ def is_valid_email(email):
     return re.match(pattern, email) is not None
 
 
-def create_app():
+def create_app(testing: bool = False, upload_folder: str = None):
     templates_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'templates'))
     static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
     app = Flask(__name__, template_folder=templates_dir, static_folder=static_dir)
     app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-prod')
-    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+    # allow tests or callers to override upload folder
+    chosen_upload = upload_folder or UPLOAD_FOLDER
+    app.config['UPLOAD_FOLDER'] = chosen_upload
+    # testing config toggles
+    if testing:
+        app.config['TESTING'] = True
+        app.config['WTF_CSRF_ENABLED'] = False
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -38,7 +44,7 @@ def create_app():
     init_db()
 
     # storage adapter (use GitAdapter under uploads)
-    storage = GitAdapter(UPLOAD_FOLDER)
+    storage = GitAdapter(app.config['UPLOAD_FOLDER'])
 
 
     def current_user():
