@@ -1,7 +1,11 @@
 import os
+import re
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash, Response
+from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
 
 from .db import init_db, create_user, get_user_by_email, create_entry, list_entries_for_patient, list_all_entries, get_entry, delete_entry, update_entry
 from .storage.git_adapter import GitAdapter
@@ -11,12 +15,24 @@ UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'u
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
+def is_valid_email(email):
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
+
 def create_app():
     templates_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'templates'))
     static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
     app = Flask(__name__, template_folder=templates_dir, static_folder=static_dir)
-    app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret')
+    app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-change-in-prod')
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('FLASK_ENV') == 'production'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+    app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
+    
+    csrf = CSRFProtect(app)
+    google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
 
     # init DB
     init_db()
@@ -46,14 +62,21 @@ def create_app():
     @app.route('/signup', methods=['GET', 'POST'])
     def signup():
         if request.method == 'POST':
-            email = request.form['email']
+            email = request.form['email'].strip()
             password = request.form['password']
+            if not is_valid_email(email):
+                flash('Invalid email format')
+                return redirect(url_for('signup'))
+            if len(password) < 6:
+                flash('Password must be at least 6 characters')
+                return redirect(url_for('signup'))
             role = request.form.get('role', 'patient')
             if get_user_by_email(email):
                 flash('User already exists')
                 return redirect(url_for('signup'))
             pw = generate_password_hash(password)
             create_user(email, pw, role=role)
+            session.permanent = True
             session['user_email'] = email
             return redirect(url_for('index'))
         return render_template('signup.html')
@@ -62,12 +85,13 @@ def create_app():
     @app.route('/login', methods=['GET', 'POST'])
     def login():
         if request.method == 'POST':
-            email = request.form['email']
+            email = request.form['email'].strip()
             password = request.form['password']
             user = get_user_by_email(email)
             if not user or not check_password_hash(user.get('password'), password):
-                flash('Invalid credentials')
+                flash('Invalid email or password')
                 return redirect(url_for('login'))
+            session.permanent = True
             session['user_email'] = user.get('email')
             return redirect(url_for('index'))
         return render_template('login.html')
@@ -77,6 +101,30 @@ def create_app():
     def logout():
         session.pop('user_email', None)
         return redirect(url_for('index'))
+
+
+    @app.route('/auth/google', methods=['POST'])
+    @csrf.exempt  # Google token in POST body, not CSRF token
+    def auth_google():
+        """Handle Google OAuth token from frontend (implicit/token flow)."""
+        token = request.form.get('token') or request.json.get('token')
+        if not token or not google_client_id:
+            flash('Google authentication not configured')
+            return redirect(url_for('login'))
+        try:
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), google_client_id)
+            email = idinfo.get('email')
+            user = get_user_by_email(email)
+            if not user:
+                # Auto-create patient account on first Google login
+                create_user(email, '', role='patient')  # empty password for OAuth
+            session.permanent = True
+            session['user_email'] = email
+            return redirect(url_for('index'))
+        except Exception as e:
+            flash(f'Google login failed: {str(e)}')
+            return redirect(url_for('login'))
+
 
 
     @app.route('/upload', methods=['GET', 'POST'])
