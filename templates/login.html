@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card">
+  <h2>Login</h2>
+  <form method="post">
+    <label>Email</label>
+    <input name="email"/>
+
+    <label>Password</label>
+    <input name="password" type="password"/>
+
+    <div style="margin-top:12px">
+      <button class="btn" type="submit">Login</button>
+      <a class="btn secondary" href="{{ url_for('signup') }}">Signup</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

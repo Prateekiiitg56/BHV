@@ -2,3 +2,6 @@ Flask>=2.0
 GitPython>=3.1
 pymongo>=4.0
 python-dotenv>=0.21
+
+# Embedded DB fallback for single-command installs
+tinydb>=4.7
