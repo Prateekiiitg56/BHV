@@ -62,7 +62,34 @@ def create_app(testing: bool = False, upload_folder: str = None):
                 return redirect(url_for('admin'))
             else:
                 return redirect(url_for('my_entries'))
-        return render_template('index.html')
+        return render_template('home.html')
+
+
+    @app.route('/profile')
+    def profile():
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+        # fetch entries to display
+        entries = list_entries_for_patient(user.get('email'))
+        # TinyDB returns dicts, Mongo returns BSON; normalize attributes
+        # For templates we expect e.filename, e.narrative, e.id (doc id)
+        norm = []
+        for e in entries:
+            if isinstance(e, dict):
+                # TinyDB uses 'doc_id' or returns as dict
+                elem = type('E', (), {})()
+                elem.filename = e.get('filename')
+                elem.narrative = e.get('narrative')
+                elem.id = e.get('doc_id') or e.get('_id')
+            else:
+                # pymongo returns mapping-like with attribute access not supported
+                elem = type('E', (), {})()
+                elem.filename = e.get('filename')
+                elem.narrative = e.get('narrative')
+                elem.id = str(e.get('_id')) if e.get('_id') else None
+            norm.append(elem)
+        return render_template('profile.html', user=user, entries=norm)
 
 
     @app.route('/signup', methods=['GET', 'POST'])

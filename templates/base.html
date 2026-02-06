@@ -17,6 +17,7 @@
         </div>
         <nav class="main-nav">
           {% if session.user_email %}
+            <a href="{{ url_for('profile') }}" class="btn-link">Profile</a>
             <span class="muted">{{ session.user_email }}</span>
             <a href="{{ url_for('logout') }}" class="btn-link">Logout</a>
           {% else %}
