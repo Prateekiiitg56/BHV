@@ -4,12 +4,17 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>BHV — Alaska</title>
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/alaska.css') }}" />
   </head>
   <body>
     <header class="site-header">
-      <div class="container">
-        <div class="brand"><a href="{{ url_for('index') }}">Alaska · BHV</a></div>
+      <div class="container header-inner">
+        <div class="brand">
+          <a href="{{ url_for('index') }}" class="brand-link">
+            <img src="{{ url_for('static', filename='img/alaska-logo.svg') }}" alt="Alaska BHV" class="brand-logo"/>
+          </a>
+        </div>
         <nav class="main-nav">
           {% if session.user_email %}
             <span class="muted">{{ session.user_email }}</span>
