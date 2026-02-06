@@ -17,8 +17,11 @@ body{
 }
 .container{max-width:920px;margin:24px auto;padding:0 16px}
 .site-header{background:transparent;padding:18px 0;border-bottom:1px solid rgba(11,39,51,0.06)}
+.header-inner{display:flex;align-items:center;justify-content:space-between}
+.brand-link{display:flex;align-items:center;text-decoration:none}
+.brand-logo{height:36px;width:auto;margin-right:12px}
 .site-header .brand a{font-weight:700;color:var(--accent);text-decoration:none;font-size:18px}
-.main-nav{float:right}
+.main-nav{margin-left:auto}
 .main-nav a{margin-left:12px;color:var(--accent);text-decoration:none}
 .muted{color:var(--muted);margin-right:8px}
 .site-footer{margin-top:36px;padding:12px 0;color:var(--muted);font-size:13px;border-top:1px solid rgba(11,39,51,0.04)}
@@ -31,6 +34,7 @@ textarea{min-height:120px}
 .btn{display:inline-block;padding:8px 14px;border-radius:6px;background:var(--accent);color:#fff;border:none;text-decoration:none}
 .btn.secondary{background:var(--accent-2)}
 .btn-link{background:transparent;border:none;color:var(--accent);text-decoration:underline;padding:0 6px}
+.btn .icon{display:inline-block;vertical-align:middle;margin-right:8px;height:14px;width:14px}
 .entry{border-left:4px solid rgba(0,118,130,0.08);padding:10px;margin:12px 0}
 .file-list{list-style:none;padding:0;margin:0}
 .file-list li{padding:8px 0;border-bottom:1px dashed #edf6f8}
