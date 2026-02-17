@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard — Behavioral Health Vault{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">Administration</span>
+      <h2 class="section-title">All Patient Records</h2>
+      <p class="section-subtitle">Manage and review records across all patients.</p>
+    </div>
+
+    {% if entries %}
+      <div class="entry-grid">
+      {% for e in entries %}
+        <div class="entry-card">
+          <div class="entry-card__title">{{ e.filename }}</div>
+          <div class="entry-card__meta">
+            <span class="badge badge-primary">{{ e.patient_id }}</span>
+            {% if e.timestamp %} · {{ e.timestamp }}{% endif %}
+          </div>
+          {% if e.narrative %}
+            <div class="entry-card__narrative">"{{ e.narrative }}"</div>
+          {% endif %}
+          <div class="entry-card__actions">
+            <a class="btn btn-sm" href="{{ url_for('uploads', filename=e.patient_id + '/' + e.filename) }}">Download</a>
+            <a class="btn btn-sm btn-secondary" href="{{ url_for('entry_edit', entry_id=e.id) }}">Edit</a>
+            <form style="display:inline" method="post" action="{{ url_for('entry_delete', entry_id=e.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <button class="btn btn-sm btn-danger" type="submit">Remove</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <p>No records in the system yet.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

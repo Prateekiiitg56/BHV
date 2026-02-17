@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block title %}Behavioral Health Vault{% endblock %}
+{% block content %}
+<section class="section" style="text-align:center">
+  <div class="container" style="max-width:560px">
+    <h1 class="section-title">Welcome to Behavioral Health Vault</h1>
+    <p class="section-subtitle" style="margin-bottom:1.5rem">Secure, versioned behavioral health records — where every story finds its strength.</p>
+    <div class="btn-group" style="justify-content:center">
+      <a class="btn btn-primary btn-lg" href="{{ url_for('signup') }}">Get Started</a>
+      <a class="btn btn-secondary btn-lg" href="{{ url_for('login') }}">Sign In</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

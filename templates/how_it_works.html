@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% block title %}How It Works — Behavioral Health Vault{% endblock %}
+{% block content %}
+
+<section class="section section-alt">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">Process</span>
+      <h1 class="section-title">How Haven Behavioral Health Vault Works</h1>
+      <p class="section-subtitle">
+        From sign-up to full record management — secure, versioned, and transparent.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section fade-in">
+  <div class="container">
+    <div class="steps-row">
+      <div class="step-item">
+        <span class="step-number">1</span>
+        <h3>Sign Up</h3>
+        <p>Create an account with your email or sign in with Google. Minimal-friction onboarding that keeps your data private.</p>
+      </div>
+      <div class="step-item">
+        <span class="step-number">2</span>
+        <h3>Upload</h3>
+        <p>Share a file — image, document, or text — along with a narrative describing this moment in your recovery journey.</p>
+      </div>
+      <div class="step-item">
+        <span class="step-number">3</span>
+        <h3>Git Commit</h3>
+        <p>Behind the scenes, Haven stores each upload as a Git commit. Every version is immutable, timestamped, and cryptographically verifiable.</p>
+      </div>
+      <div class="step-item">
+        <span class="step-number">4</span>
+        <h3>Review</h3>
+        <p>View your full upload history, compare versions with unified diffs, and download any previous version of any file.</p>
+      </div>
+      <div class="step-item">
+        <span class="step-number">5</span>
+        <h3>Ask Me</h3>
+        <p>Use the AI assistant to search entries by keyword, count records, or get summaries of your entire journey.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="cta-banner fade-in">
+  <div class="container" style="text-align:center">
+    <h2>See It in Action</h2>
+    <p>Create a free account and upload your first record in seconds.</p>
+    <div class="hero-actions" style="justify-content:center">
+      <a class="btn btn-white btn-lg" href="{{ url_for('signup') }}">Get Started Free</a>
+      <a class="btn btn-outline-white btn-lg" href="{{ url_for('features') }}">View Features</a>
+    </div>
+  </div>
+</section>
+{% endblock %}

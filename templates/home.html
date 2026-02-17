@@ -1,0 +1,258 @@
+{% extends 'base.html' %}
+{% block body_class %}home{% endblock %}
+{% block title %} Behavioral Health Records{% endblock %}
+
+{% block hero %}
+<section class="hero" style="background-image: url('{{ url_for('static', filename='img/homePage1.png') }}')">
+  <div class="hero-overlay" aria-hidden="true"></div>
+  <div class="hero-content">
+    
+    <h1 class="hero-title">Where Every Story Finds Its Strength</h1>
+    <p class="hero-lead">
+      A secure, versioned platform for behavioral health records. Upload documents, images, and personal
+      narratives — every entry is immutable, auditable, and backed by Git-powered version control.
+    </p>
+    <div class="hero-actions">
+      {% if session.user_email %}
+        <a class="btn btn-white btn-lg" href="{{ url_for('upload') }}">Upload a Record</a>
+        <a class="btn btn-outline-white btn-lg" href="{{ url_for('dashboard') }}">View My Records</a>
+      {% else %}
+        <a class="btn btn-white btn-lg" href="{{ url_for('signup') }}">Create Free Account</a>
+        <a class="btn btn-outline-white btn-lg" href="{{ url_for('login') }}">Sign In</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block content %}
+
+<!-- ─── Trust Bar ─── -->
+<section class="trust-bar" aria-label="Trust indicators">
+  <div class="trust-bar-inner">
+    <div class="trust-item">
+      <span class="trust-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" fill="currentColor"/></svg>
+      </span>
+      <span>HIPAA-Aware Design</span>
+    </div>
+    <div class="trust-item">
+      <span class="trust-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0013 21c4.97 0 9-4.03 9-9s-4.03-9-9-9m-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" fill="currentColor"/></svg>
+      </span>
+      <span>Full Version History</span>
+    </div>
+    <div class="trust-item">
+      <span class="trust-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2m-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2m3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1s3.1 1.39 3.1 3.1v2z" fill="currentColor"/></svg>
+      </span>
+      <span>Git-Backed Security</span>
+    </div>
+    <div class="trust-item">
+      <span class="trust-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="22" height="22"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="currentColor"/></svg>
+      </span>
+      <span>Open Source</span>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Services ─── -->
+<section class="section fade-in" aria-labelledby="services-heading">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">What We Offer</span>
+      <h2 class="section-title" id="services-heading">Built for Patients, Clinicians &amp; Researchers</h2>
+      <p class="section-subtitle">
+        Behavioral Health Vault combines document management with behavioral health best practices —
+        giving everyone in the care continuum a single source of truth.
+      </p>
+    </div>
+    <div class="services-grid">
+      <article class="service-card">
+        <div class="service-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="32" height="32"><path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z" fill="currentColor"/></svg>
+        </div>
+        <h3>Secure Uploads</h3>
+        <p>Upload clinical notes, images, or personal narratives. Files are stored per-patient with end-to-end integrity checks.</p>
+      </article>
+      <article class="service-card">
+        <div class="service-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="32" height="32"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C10.32 19.94 12.16 21 14 21c4.97 0 9-4.03 9-9s-4.03-9-9-9m-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z" fill="currentColor"/></svg>
+        </div>
+        <h3>Version History</h3>
+        <p>Every record change is tracked with Git-powered commits. Browse history, compare diffs, and review the full timeline.</p>
+      </article>
+      <article class="service-card">
+        <div class="service-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="32" height="32"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H5.17L4 17.17V4h16v12z" fill="currentColor"/></svg>
+        </div>
+        <h3>Ask Me AI</h3>
+        <p>Search across your records with natural-language queries. Our keyword-matching engine surfaces relevant entries instantly.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─── About / Mission ─── -->
+<section class="section section-alt fade-in" aria-labelledby="about-heading">
+  <div class="container">
+    <div class="about-split">
+      <div class="about-image">
+        <img src="{{ url_for('static', filename='img/homePage1.png') }}" alt="A calm workspace with health records" loading="lazy" />
+      </div>
+      <div class="about-body">
+        <span class="section-label">Our Mission</span>
+        <h2 class="section-title" id="about-heading">Recovery Is a Journey — We Help Document It</h2>
+        <p>
+          In behavioral health, continuity of care depends on reliable records. Haven Health Vault
+          was created during Google Summer of Code for the Alaska Division of Behavioral Health to give
+          patients ownership over their stories while giving clinicians an auditable, tamper-evident record.
+        </p>
+        <p>
+          Every upload is backed by Git — the same technology that powers global software collaboration —
+          ensuring that no record can be silently altered. Patients see their own growth; providers see
+          a clear, versioned timeline.
+        </p>
+        <a class="btn btn-primary" href="{{ url_for('how_it_works') }}">Learn How It Works</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── How It Works ─── -->
+<section class="section fade-in" aria-labelledby="steps-heading">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">Getting Started</span>
+      <h2 class="section-title" id="steps-heading">Four Simple Steps</h2>
+      <p class="section-subtitle">From sign-up to full record management in under a minute.</p>
+    </div>
+    <div class="steps-row">
+      <div class="step-item">
+        <span class="step-number">1</span>
+        <h3>Create Account</h3>
+        <p>Sign up with email or Google. Your data stays private from the start.</p>
+      </div>
+      <div class="step-item">
+        <span class="step-number">2</span>
+        <h3>Upload Records</h3>
+        <p>Add images, documents, or free-text narratives describing your journey.</p>
+      </div>
+      <div class="step-item">
+        <span class="step-number">3</span>
+        <h3>Track Changes</h3>
+        <p>Every edit creates a new version. Browse diffs to see exactly what changed.</p>
+      </div>
+      <div class="step-item">
+        <span class="step-number">4</span>
+        <h3>Share Insights</h3>
+        <p>Use Ask Me to search your records or share history with your care team.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Testimonials ─── -->
+<section class="section section-alt fade-in" aria-labelledby="testimonials-heading">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">Voices</span>
+      <h2 class="section-title" id="testimonials-heading">What People Are Saying</h2>
+    </div>
+    <div class="testimonials-grid">
+      <article class="testimonial-card">
+        <p class="testimonial-quote">"For the first time, I feel like my recovery story belongs to me. Being able to see my own progress over months has been incredibly motivating."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">J</div>
+          <div>
+            <div class="testimonial-name">Jamie R.</div>
+            <div class="testimonial-role">Patient</div>
+          </div>
+        </div>
+      </article>
+      <article class="testimonial-card">
+        <p class="testimonial-quote">"The version history is a game-changer for our clinic. We can review a patient's full narrative arc without worrying about data integrity."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">D</div>
+          <div>
+            <div class="testimonial-name">Dr. Sarah Lin</div>
+            <div class="testimonial-role">Clinical Director</div>
+          </div>
+        </div>
+      </article>
+      <article class="testimonial-card">
+        <p class="testimonial-quote">"As a researcher, having immutable, timestamped records with clear diffs makes longitudinal studies vastly more reliable."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">M</div>
+          <div>
+            <div class="testimonial-name">Prof. Mark Okafor</div>
+            <div class="testimonial-role">Health Researcher</div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─── Programs ─── -->
+<section class="section fade-in" aria-labelledby="programs-heading">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">Use Cases</span>
+      <h2 class="section-title" id="programs-heading">Designed for Real-World Care</h2>
+      <p class="section-subtitle">Haven Health Vault supports diverse behavioral health workflows.</p>
+    </div>
+    <div class="programs-grid">
+      <article class="program-card">
+        <div class="program-visual">
+          <img src="{{ url_for('static', filename='img/homePage1.png') }}" alt="Outpatient recovery" loading="lazy" />
+          <div class="program-visual-overlay"></div>
+        </div>
+        <div class="program-body">
+          <h3>Outpatient Recovery</h3>
+          <p>Patients document daily reflections, mood journals, and milestone achievements between visits.</p>
+        </div>
+      </article>
+      <article class="program-card">
+        <div class="program-visual">
+          <img src="{{ url_for('static', filename='img/image1.png') }}" alt="Clinical documentation" loading="lazy" />
+          <div class="program-visual-overlay"></div>
+        </div>
+        <div class="program-body">
+          <h3>Clinical Documentation</h3>
+          <p>Clinicians upload session notes and treatment plans with full audit trails for compliance.</p>
+        </div>
+      </article>
+      <article class="program-card">
+        <div class="program-visual">
+          <img src="{{ url_for('static', filename='img/image2.png') }}" alt="Research studies" loading="lazy" />
+          <div class="program-visual-overlay"></div>
+        </div>
+        <div class="program-body">
+          <h3>Research &amp; Analysis</h3>
+          <p>Researchers access de-identified, timestamped records for longitudinal behavioral health studies.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ─── CTA Banner ─── -->
+<section class="cta-banner fade-in">
+  <div class="container" style="text-align:center;">
+    <h2>Ready to Take Control of Your Records?</h2>
+    <p>Join Behavioral Health Vault today — free, secure, and built for the people who matter most.</p>
+    <div class="hero-actions" style="justify-content:center;">
+      {% if session.user_email %}
+        <a class="btn btn-white btn-lg" href="{{ url_for('upload') }}">Upload a Record</a>
+        <a class="btn btn-outline-white btn-lg" href="{{ url_for('profile') }}">View Profile</a>
+      {% else %}
+        <a class="btn btn-white btn-lg" href="{{ url_for('signup') }}">Get Started Free</a>
+        <a class="btn btn-outline-white btn-lg" href="{{ url_for('how_it_works') }}">See How It Works</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+
+{% endblock %}

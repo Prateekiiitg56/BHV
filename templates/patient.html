@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block title %}My Records — Behavioral Health Vault{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="section-header">
+      <h2 class="section-title">My Records</h2>
+      <p class="section-subtitle">{{ patient_id }}</p>
+    </div>
+
+    {% if entries %}
+      <div class="entry-grid">
+      {% for e in entries %}
+        <div class="entry-card">
+          <div class="entry-card__title">{{ e.filename }}</div>
+          <div class="entry-card__meta">
+            {% if e.timestamp %}Uploaded {{ e.timestamp }}{% endif %}
+          </div>
+          {% if e.narrative %}
+            <div class="entry-card__narrative">"{{ e.narrative }}"</div>
+          {% endif %}
+          <div class="entry-card__actions">
+            <a class="btn btn-sm" href="{{ url_for('uploads', filename=patient_id + '/' + e.filename) }}">Download</a>
+            {% if session.user_email and session.user_email == patient_id %}
+              <a class="btn btn-sm btn-secondary" href="{{ url_for('entry_edit', entry_id=e.id) }}">Edit</a>
+              <form style="display:inline" method="post" action="{{ url_for('entry_delete', entry_id=e.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <p>No records yet. Start documenting your journey!</p>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Your First Record</a>
+      </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

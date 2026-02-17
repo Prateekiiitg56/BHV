@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block title %}Diff View — Behavioral Health Vault{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:800px">
+    <div class="section-header">
+      <span class="section-label">Comparison</span>
+      <h2 class="section-title">Diff View</h2>
+      <p class="section-subtitle">
+        {{ patient_id }} / {{ filename }}
+        — <span class="commit-item__sha">{{ old[:12] }}</span> → <span class="commit-item__sha">{{ new[:12] }}</span>
+      </p>
+    </div>
+    <pre class="diff-block">{{ diff }}</pre>
+    <div class="btn-group" style="margin-top:1rem">
+      <a class="btn btn-secondary" href="{{ url_for('history', patient_id=patient_id, filename=filename) }}">← Back to History</a>
+    </div>
+  </div>
+</section>
+{% endblock %}
