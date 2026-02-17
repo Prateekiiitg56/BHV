@@ -1,9 +1,48 @@
 {% extends 'base.html' %}
+{% block title %}Contact — Behavioral Health Vault{% endblock %}
 {% block content %}
-<section style="padding:26px 28px">
-  <h1 style="margin:0 0 10px 0;font-size:22px">Contact</h1>
-  <p style="margin:0;color:rgba(0,0,0,0.65);font-size:13px;line-height:1.7">
-    Placeholder page.
-  </p>
+
+<section class="section section-alt">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">Get in Touch</span>
+      <h1 class="section-title">Contact Us</h1>
+      <p class="section-subtitle">
+        Behavioral Health Vault is developed as part of a Google Summer of Code project
+        for the Alaska Division of Behavioral Health.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section fade-in">
+  <div class="container" style="max-width:640px">
+    <div class="card">
+      <h3 style="margin-bottom:1rem">Reach Out</h3>
+      <p style="margin-bottom:1rem;color:var(--slate-600)">
+        For questions, feedback, bug reports, or collaboration inquiries, you can reach us
+        through the project's GitHub repository.
+      </p>
+      <div style="margin-bottom:1.5rem">
+        <strong>GitHub Repository</strong><br />
+        <a href="https://github.com/Prateekiiitg56/BHV" target="_blank" rel="noopener">
+          github.com/Prateekiiitg56/BHV
+        </a>
+      </div>
+      <div style="margin-bottom:1.5rem">
+        <strong>Open an Issue</strong><br />
+        <a href="https://github.com/Prateekiiitg56/BHV/issues" target="_blank" rel="noopener">
+          Report a bug or request a feature
+        </a>
+      </div>
+      <div>
+        <strong>Project Context</strong><br />
+        <span style="color:var(--slate-600)">
+          Built for the Alaska Division of Behavioral Health during GSoC.
+          Focused on secure, versioned behavioral health records.
+        </span>
+      </div>
+    </div>
+  </div>
 </section>
 {% endblock %}

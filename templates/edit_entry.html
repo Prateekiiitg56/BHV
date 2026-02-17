@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Edit Record — Behavioral Health Vault{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:560px">
+    <div class="card">
+      <div class="section-header" style="margin-bottom:1.5rem">
+        <h2 class="section-title" style="font-size:1.5rem">Edit Record</h2>
+        <p class="section-subtitle">
+          Update the narrative or replace the file for this entry.
+        </p>
+      </div>
+
+      <div class="entry-card" style="margin-bottom:1.5rem">
+        <div class="entry-card__title">{{ entry.filename }}</div>
+        <div class="entry-card__meta">
+          {% if entry.patient_id %}<span class="badge badge-primary">{{ entry.patient_id }}</span> · {% endif %}
+          {% if entry.timestamp %}Uploaded {{ entry.timestamp }}{% endif %}
+        </div>
+      </div>
+
+      <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        <label for="narrative">Narrative</label>
+        <textarea id="narrative" name="narrative" rows="5"
+          placeholder="Describe what this entry means to you…">{{ entry.narrative or '' }}</textarea>
+
+        <label for="file">Replace File <small>(optional — leave empty to keep current file)</small></label>
+        <input id="file" type="file" name="file" />
+
+        <div class="btn-group">
+          <button class="btn btn-primary" type="submit">Save Changes</button>
+          {% if is_admin %}
+            <a class="btn btn-secondary" href="{{ url_for('admin') }}">Cancel</a>
+          {% else %}
+            <a class="btn btn-secondary" href="{{ url_for('my_entries') }}">Cancel</a>
+          {% endif %}
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}

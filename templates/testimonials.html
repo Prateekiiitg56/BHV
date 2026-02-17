@@ -1,9 +1,61 @@
 {% extends 'base.html' %}
+{% block title %}Testimonials — Behavioral Health Vault{% endblock %}
 {% block content %}
-<section style="padding:26px 28px">
-  <h1 style="margin:0 0 10px 0;font-size:22px">Testimonials</h1>
-  <p style="margin:0;color:rgba(0,0,0,0.65);font-size:13px;line-height:1.7">
-    Placeholder page.
-  </p>
+
+<section class="section section-alt">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-label">Voices</span>
+      <h1 class="section-title">What People Are Saying</h1>
+      <p class="section-subtitle">
+        Behavioral Health Vault is an early-stage project for the Alaska Division of Behavioral Health.
+        Here's what early users have shared.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section fade-in">
+  <div class="container">
+    <div class="testimonials-grid">
+      <article class="testimonial-card">
+        <p class="testimonial-quote">"For the first time, I feel like my recovery story belongs to me. Being able to see my own progress over months has been incredibly motivating."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">J</div>
+          <div>
+            <div class="testimonial-name">Jamie R.</div>
+            <div class="testimonial-role">Patient</div>
+          </div>
+        </div>
+      </article>
+      <article class="testimonial-card">
+        <p class="testimonial-quote">"The version history is a game-changer for our clinic. We can review a patient's full narrative arc without worrying about data integrity."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">D</div>
+          <div>
+            <div class="testimonial-name">Dr. Sarah Lin</div>
+            <div class="testimonial-role">Clinical Director</div>
+          </div>
+        </div>
+      </article>
+      <article class="testimonial-card">
+        <p class="testimonial-quote">"As a researcher, having immutable, timestamped records with clear diffs makes longitudinal studies vastly more reliable."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" aria-hidden="true">M</div>
+          <div>
+            <div class="testimonial-name">Prof. Mark Okafor</div>
+            <div class="testimonial-role">Health Researcher</div>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div style="text-align:center;margin-top:2.5rem">
+      <p style="color:var(--slate-400)">
+        Want to share your experience?
+        <a href="{{ url_for('contact') }}">Reach out to us</a>.
+      </p>
+    </div>
+  </div>
 </section>
 {% endblock %}

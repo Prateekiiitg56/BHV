@@ -1,6 +1,6 @@
 import os
 import re
-from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash
+from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash, Response
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -85,6 +85,12 @@ def create_app(testing: bool = False, upload_folder: str = None):
     # storage adapter (use GitAdapter under uploads)
     storage = GitAdapter(app.config['UPLOAD_FOLDER'])
 
+    # Inject current year into all templates for footer
+    from datetime import datetime as _dt, timezone as _tz
+    @app.context_processor
+    def inject_year():
+        return {'current_year': _dt.now(_tz.utc).year}
+
 
     def current_user():
         uid = session.get('user_email')
@@ -133,26 +139,103 @@ def create_app(testing: bool = False, upload_folder: str = None):
         user = current_user()
         if not user:
             return redirect(url_for('login'))
-        # fetch entries to display
-        entries = list_entries_for_patient(user.get('email'))
-        # TinyDB returns dicts, Mongo returns BSON; normalize attributes
-        # For templates we expect e.filename, e.narrative, e.id (doc id)
-        norm = []
-        for e in entries:
-            if isinstance(e, dict):
-                # TinyDB uses 'doc_id' or returns as dict
-                elem = type('E', (), {})()
-                elem.filename = e.get('filename')
-                elem.narrative = e.get('narrative')
-                elem.id = e.get('doc_id') or e.get('_id')
-            else:
-                # pymongo returns mapping-like with attribute access not supported
-                elem = type('E', (), {})()
-                elem.filename = e.get('filename')
-                elem.narrative = e.get('narrative')
-                elem.id = str(e.get('_id')) if e.get('_id') else None
-            norm.append(elem)
-        return render_template('profile.html', user=user, entries=norm)
+        entries = _normalize_entries(list_entries_for_patient(user.get('email')))
+        return render_template('profile.html', user=user, entries=entries)
+
+
+    @app.route('/ask_me', methods=['GET', 'POST'])
+    def ask_me():
+        """AI assistant for querying patient data."""
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+        
+        answer = None
+        results = []
+        question = None
+        
+        if request.method == 'POST':
+            question = request.form.get('question', '').strip()
+            if question:
+                # Get user's entries
+                patient_id = user.get('email') if user.get('role') == 'patient' else None
+                if patient_id:
+                    entries = list_entries_for_patient(patient_id)
+                elif user.get('role') == 'admin':
+                    entries = list_all_entries()
+                else:
+                    entries = []
+                
+                # Simple keyword-based search and response
+                q_lower = question.lower()
+                
+                # Count queries
+                if any(word in q_lower for word in ['how many', 'count', 'total']):
+                    answer = f"You have {len(entries)} entries in your vault."
+                    results = entries[:5]  # Show first 5
+                
+                # List all queries
+                elif any(word in q_lower for word in ['show all', 'list all', 'all entries', 'all uploaded']):
+                    answer = f"Here are all {len(entries)} entries from your vault:"
+                    results = entries
+                
+                # Keyword search
+                elif 'mention' in q_lower or 'about' in q_lower or 'find' in q_lower:
+                    # Extract potential keywords after common search terms
+                    keywords = []
+                    for term in ['mention', 'mentioning', 'about', 'find', 'regarding', 'contains']:
+                        if term in q_lower:
+                            idx = q_lower.index(term) + len(term)
+                            remaining = question[idx:].strip()
+                            keywords.extend([w.strip('\"\\\',.;:!?') for w in remaining.split() if len(w) > 3])
+                    
+                    if keywords:
+                        matching = []
+                        for e in entries:
+                            narrative = (e.get('narrative') or '').lower()
+                            filename = (e.get('filename') or '').lower()
+                            if any(kw.lower() in narrative or kw.lower() in filename for kw in keywords):
+                                matching.append(e)
+                        
+                        if matching:
+                            answer = f"Found {len(matching)} entries matching your query."
+                            results = matching
+                        else:
+                            answer = f"No entries found matching '{', '.join(keywords)}'."
+                    else:
+                        answer = "Please specify keywords to search for (e.g., 'Find entries mentioning anxiety')."
+                
+                # Summary
+                elif 'summar' in q_lower or 'overview' in q_lower:
+                    answer = f"Recovery Journey Summary:\\n\\nTotal Entries: {len(entries)}\\n"
+                    if entries:
+                        recent = entries[-5:] if len(entries) >= 5 else entries
+                        answer += f"\\nMost Recent Uploads:\\n"
+                        for e in reversed(recent):
+                            answer += f"• {e.get('filename')} - {e.get('narrative', 'No description')[:50]}...\\n"
+                    results = entries[-10:]  # Show last 10
+                
+                # Default response
+                else:
+                    answer = f"I found {len(entries)} entries in your vault. Try asking:\\n"
+                    answer += "• 'Show me all my entries'\\n"
+                    answer += "• 'Find entries mentioning [keyword]'\\n"
+                    answer += "• 'How many entries do I have?'\\n"
+                    answer += "• 'Summarize my recovery journey'"
+                    results = entries[:5]
+                
+                # Normalize results for template
+                normalized_results = []
+                for e in results:
+                    obj = type('Entry', (), {})()
+                    obj.filename = e.get('filename')
+                    obj.narrative = e.get('narrative', '')
+                    obj.patient_id = e.get('patient_id')
+                    obj.timestamp = e.get('timestamp', '')
+                    normalized_results.append(obj)
+                results = normalized_results
+        
+        return render_template('ask_me.html', question=question, answer=answer, results=results)
 
 
     @app.route('/signup', methods=['GET', 'POST'])
@@ -223,6 +306,28 @@ def create_app(testing: bool = False, upload_folder: str = None):
 
 
 
+    def _normalize_entries(raw_entries):
+        """Normalize DB results (TinyDB dicts or Mongo docs) into objects
+        with consistent attributes: .id, .filename, .narrative, .timestamp, .patient_id"""
+        norm = []
+        for e in raw_entries:
+            elem = type('E', (), {})()
+            elem.filename = e.get('filename')
+            elem.narrative = e.get('narrative')
+            elem.timestamp = e.get('timestamp')
+            elem.patient_id = e.get('patient_id')
+            # TinyDB Document objects have a .doc_id attribute (int)
+            # MongoDB documents have an '_id' field (ObjectId)
+            if hasattr(e, 'doc_id'):
+                elem.id = e.doc_id
+            elif e.get('_id'):
+                elem.id = str(e['_id'])
+            else:
+                elem.id = None
+            norm.append(elem)
+        return norm
+
+
     @app.route('/upload', methods=['GET', 'POST'])
     def upload():
         user = current_user()
@@ -258,7 +363,8 @@ def create_app(testing: bool = False, upload_folder: str = None):
             create_entry(patient_id, filename, narrative)
             flash('Uploaded')
             return redirect(url_for('my_entries'))
-        return render_template('upload.html')
+        is_admin = user.get('role') == 'admin'
+        return render_template('upload.html', is_admin=is_admin)
 
 
     @app.route('/my')
@@ -267,7 +373,7 @@ def create_app(testing: bool = False, upload_folder: str = None):
         if not user:
             return redirect(url_for('login'))
         patient_id = user.get('email') if user.get('role')=='patient' else request.args.get('patient_id')
-        entries = list_entries_for_patient(patient_id)
+        entries = _normalize_entries(list_entries_for_patient(patient_id))
         return render_template('patient.html', entries=entries, patient_id=patient_id)
 
 
@@ -276,7 +382,7 @@ def create_app(testing: bool = False, upload_folder: str = None):
         user = current_user()
         if not user or user.get('role')!='admin':
             return redirect(url_for('login'))
-        entries = list_all_entries()
+        entries = _normalize_entries(list_all_entries())
         return render_template('admin.html', entries=entries)
 
 
@@ -293,6 +399,49 @@ def create_app(testing: bool = False, upload_folder: str = None):
         delete_entry(entry_id)
         flash('Deleted')
         return redirect(url_for('admin') if user.get('role')=='admin' else url_for('my_entries'))
+
+
+    @app.route('/entry/<entry_id>/edit', methods=['GET', 'POST'])
+    def entry_edit(entry_id):
+        """Edit an existing entry's narrative and optionally replace the file."""
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+
+        # Fetch the entry
+        raw = get_entry(entry_id)
+        if not raw:
+            flash('Entry not found')
+            return redirect(url_for('my_entries'))
+
+        # Normalize for consistent access
+        entry = _normalize_entries([raw])[0]
+
+        # Access check: patients can only edit their own, admins can edit any
+        is_admin = user.get('role') == 'admin'
+        if not is_admin and user.get('email') != entry.patient_id:
+            flash('Access denied')
+            return redirect(url_for('my_entries'))
+
+        if request.method == 'POST':
+            new_narrative = request.form.get('narrative', '')
+            f = request.files.get('file')
+
+            update_fields = {'narrative': new_narrative}
+
+            # If a new file was provided, replace the stored file
+            if f and f.filename:
+                new_filename = secure_filename(f.filename)
+                rel_path = os.path.join(entry.patient_id, new_filename)
+                data = f.read()
+                storage.save(rel_path, data, user_id=user.get('email'), action='edit')
+                update_fields['filename'] = new_filename
+
+            update_entry(entry_id, **update_fields)
+            flash('Entry updated')
+            return redirect(url_for('admin') if is_admin else url_for('my_entries'))
+
+        return render_template('edit_entry.html', entry=entry, is_admin=is_admin)
 
 
     @app.route('/history/<patient_id>/<filename>')

@@ -1,30 +1,61 @@
 {% extends 'base.html' %}
+{% block title %}My Profile — Behavioral Health Vault{% endblock %}
 {% block content %}
-<div class="card">
-  <h2>Profile</h2>
-  {% if user %}
-    <p><strong>Email:</strong> {{ user.email }}</p>
-    <p><strong>Role:</strong> {{ user.role }}</p>
-    <p><strong>Entries:</strong> {{ entries|length }}</p>
-    <h3>Recent files</h3>
+<section class="section">
+  <div class="container">
+    {% if user %}
+    <div class="section-header">
+      <h2 class="section-title">My Profile</h2>
+    </div>
+
+    <div class="stat-row">
+      <div class="stat-card">
+        <div class="stat-card__value">{{ entries|length }}</div>
+        <div class="stat-card__label">Total Records</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__value" style="font-size:1rem;word-break:break-all">{{ user.email }}</div>
+        <div class="stat-card__label">Email</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__value"><span class="badge badge-accent">{{ user.role|title }}</span></div>
+        <div class="stat-card__label">Role</div>
+      </div>
+    </div>
+
+    <h3 style="margin:2rem 0 1rem">Upload History</h3>
+
     {% if entries %}
-      <ul class="file-list">
-      {% for e in entries[:10] %}
-        <li>
-          <strong>{{ e.filename }}</strong>
-          <div class="muted">{{ e.narrative or '' }}</div>
-          <div style="margin-top:6px">
-            <a class="btn" href="{{ url_for('file_version', patient_id=user.email, filename=e.filename) }}">Download</a>
-            <a class="btn secondary" href="{{ url_for('history', patient_id=user.email, filename=e.filename) }}">History</a>
+      <div class="entry-grid">
+      {% for e in entries %}
+        <div class="entry-card">
+          <div class="entry-card__title">{{ e.filename }}</div>
+          <div class="entry-card__meta">
+            {% if e.timestamp %}Uploaded {{ e.timestamp }}{% endif %}
           </div>
-        </li>
+          {% if e.narrative %}
+            <div class="entry-card__narrative">"{{ e.narrative }}"</div>
+          {% endif %}
+          <div class="entry-card__actions">
+            <a class="btn btn-sm" href="{{ url_for('file_version', patient_id=user.email, filename=e.filename) }}">Download</a>
+            <a class="btn btn-sm btn-secondary" href="{{ url_for('entry_edit', entry_id=e.id) }}">Edit</a>
+            <a class="btn btn-sm btn-secondary" href="{{ url_for('history', patient_id=user.email, filename=e.filename) }}">History</a>
+          </div>
+        </div>
       {% endfor %}
-      </ul>
+      </div>
     {% else %}
-      <p class="muted">No entries yet.</p>
+      <div class="empty-state">
+        <p>No uploads yet. Start your recovery journey!</p>
+        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Your First Record</a>
+      </div>
     {% endif %}
-  {% else %}
-    <p class="muted">No user information available.</p>
-  {% endif %}
-</div>
+
+    {% else %}
+    <div class="empty-state">
+      <p>No user information available.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}
