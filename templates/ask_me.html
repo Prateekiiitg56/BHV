@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+{% block title %}Ask Me — Behavioral Health Vault{% endblock %}
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:720px">
+    <div class="section-header">
+      <span class="section-label">AI Assistant</span>
+      <h2 class="section-title">Ask Me</h2>
+      <p class="section-subtitle">
+        Search your records by keyword, count uploads, or explore your recovery timeline.
+      </p>
+    </div>
+
+    <div class="card">
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <label for="question">Your Question</label>
+        <textarea
+          id="question"
+          name="question"
+          rows="3"
+          placeholder="e.g., 'How many entries do I have?' or 'Find entries mentioning anxiety'"
+          required
+        >{{ question or '' }}</textarea>
+        <div class="btn-group">
+          <button class="btn btn-primary" type="submit">Search Records</button>
+        </div>
+      </form>
+    </div>
+
+    {% if answer %}
+    <div class="ai-response" style="margin-top:1.5rem">
+      <h3>Answer</h3>
+      <div class="ai-response__body">{{ answer }}</div>
+
+      {% if results %}
+      <h4 style="margin-top:1.25rem">Related Records</h4>
+      {% for entry in results %}
+        <div class="ai-result-item">
+          <strong>{{ entry.filename }}</strong>
+          <div class="muted">{{ entry.timestamp }}</div>
+          {% if entry.narrative %}
+            <div style="margin-top:.375rem;font-style:italic;color:var(--slate-400)">"{{ entry.narrative }}"</div>
+          {% endif %}
+          <a href="{{ url_for('file_version', patient_id=entry.patient_id, filename=entry.filename) }}"
+             class="btn btn-sm" style="margin-top:.5rem">
+            View Record
+          </a>
+        </div>
+      {% endfor %}
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="example-box" style="margin-top:1.5rem">
+      <h4>Example Questions</h4>
+      <ul>
+        <li>Show me all my uploaded files</li>
+        <li>Find entries mentioning <em>[keyword]</em></li>
+        <li>How many entries do I have?</li>
+        <li>Summarize my recovery journey</li>
+        <li>What were my recent uploads?</li>
+      </ul>
+    </div>
+  </div>
+</section>
+{% endblock %}

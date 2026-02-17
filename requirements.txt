@@ -9,5 +9,8 @@ google-auth-oauthlib>=1.0
 # Test runner
 pytest>=7.0
 
+# NLP for SDOH tagging
+textblob>=0.17
+
 # Embedded DB fallback for single-command installs
 tinydb>=4.7

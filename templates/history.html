@@ -1,25 +1,40 @@
 {% extends 'base.html' %}
+{% block title %}Version History — Behavioral Health Vault{% endblock %}
 {% block content %}
-<div class="card">
-  <h2>History — {{ patient_id }} / {{ filename }}</h2>
-  {% if commits %}
-    <ul class="file-list">
-    {% for c in commits %}
-      <li>
-        <div><strong>{{ c.hexsha }}</strong> — <span class="muted">{{ c.datetime }} by {{ c.author }}</span></div>
-        <div style="margin-top:6px">
-          <a class="btn" href="{{ url_for('file_version', patient_id=patient_id, filename=filename, version=c.hexsha) }}">Download this version</a>
-          {% if not loop.first %}
-            {% set prev = commits[loop.index0 - 1] %}
-            <a class="btn secondary" href="{{ url_for('diff', patient_id=patient_id, filename=filename, old_sha=prev.hexsha, new_sha=c.hexsha) }}">Diff vs previous</a>
-          {% endif %}
+<section class="section">
+  <div class="container" style="max-width:800px">
+    <div class="section-header">
+      <span class="section-label">Audit Trail</span>
+      <h2 class="section-title">Version History</h2>
+      <p class="section-subtitle">{{ patient_id }} / {{ filename }}</p>
+    </div>
+
+    {% if commits %}
+      <div class="commit-list">
+      {% for c in commits %}
+        <div class="commit-item">
+          <div style="display:flex;justify-content:space-between;align-items:start;flex-wrap:wrap;gap:.5rem">
+            <div>
+              <span class="commit-item__sha">{{ c.hexsha[:12] }}</span>
+              <span class="muted"> · {{ c.datetime }} by {{ c.author }}</span>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+              <a class="btn btn-sm" href="{{ url_for('file_version', patient_id=patient_id, filename=filename, version=c.hexsha) }}">Download</a>
+              {% if not loop.first %}
+                {% set prev = commits[loop.index0 - 1] %}
+                <a class="btn btn-sm btn-secondary" href="{{ url_for('diff', patient_id=patient_id, filename=filename, old_sha=prev.hexsha, new_sha=c.hexsha) }}">Compare</a>
+              {% endif %}
+            </div>
+          </div>
+          <div class="muted" style="margin-top:.5rem">{{ c.message }}</div>
         </div>
-        <div class="muted">{{ c.message }}</div>
-      </li>
-    {% endfor %}
-    </ul>
-  {% else %}
-    <p class="muted">No history found for this file.</p>
-  {% endif %}
-</div>
+      {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        <p>No history found for this file.</p>
+      </div>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

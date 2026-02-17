@@ -76,10 +76,10 @@ else:
         return entries.all()
 
     def get_entry(entry_id):
-        return entries.get(doc_id=entry_id)
+        return entries.get(doc_id=int(entry_id))
 
     def delete_entry(entry_id):
-        entries.remove(doc_ids=[entry_id])
+        entries.remove(doc_ids=[int(entry_id)])
 
     def update_entry(entry_id, **kwargs):
-        entries.update(kwargs, doc_ids=[entry_id])
+        entries.update(kwargs, doc_ids=[int(entry_id)])
