@@ -306,14 +306,20 @@ def create_app(testing: bool = False, upload_folder: str = None):
     @csrf.exempt
     def auth_google_callback():
         """Receives the OAuth2 authorization code and signs the user in."""
-        import urllib.parse, urllib.request, json as _json, base64
+        import urllib.parse, urllib.request, urllib.error, json as _json, base64
         code = request.args.get('code')
         error = request.args.get('error')
         if error or not code:
             flash(f'Google login cancelled: {error or "no code"}')
             return redirect(url_for('login'))
+
         client_id = app.config.get('GOOGLE_CLIENT_ID', '')
         client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+
+        if not client_secret:
+            flash('Google login is not fully configured (missing GOOGLE_CLIENT_SECRET). Please contact the admin.')
+            return redirect(url_for('login'))
+
         callback_url = url_for('auth_google_callback', _external=True)
         token_data = urllib.parse.urlencode({
             'code': code,
@@ -329,8 +335,22 @@ def create_app(testing: bool = False, upload_folder: str = None):
             )
             with urllib.request.urlopen(req) as resp:
                 token_resp = _json.loads(resp.read())
+        except urllib.error.HTTPError as http_err:
+            body = ''
+            try:
+                body = _json.loads(http_err.read())
+                err_desc = body.get('error_description', body.get('error', str(http_err)))
+            except Exception:
+                err_desc = str(http_err)
+            print(f'[Google OAuth] token exchange failed: {body}')
+            flash(f'Google login failed: {err_desc}')
+            return redirect(url_for('login'))
+        except Exception as exc:
+            flash(f'Google login error: {str(exc)}')
+            return redirect(url_for('login'))
+
+        try:
             id_tok = token_resp.get('id_token', '')
-            # Decode JWT payload (Google already verified the code — safe for prototype)
             payload_b64 = id_tok.split('.')[1]
             payload_b64 += '=' * (4 - len(payload_b64) % 4)
             user_info = _json.loads(base64.urlsafe_b64decode(payload_b64))
