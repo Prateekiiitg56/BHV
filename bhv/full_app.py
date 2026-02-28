@@ -281,6 +281,73 @@ def create_app(testing: bool = False, upload_folder: str = None):
 
 
 
+    @app.route('/auth/google/redirect')
+    def auth_google_redirect():
+        """Standard OAuth2 redirect — sends user to Google consent page. No FedCM."""
+        client_id = app.config.get('GOOGLE_CLIENT_ID', '')
+        if not client_id:
+            flash('Google Sign-In is not configured.')
+            return redirect(url_for('login'))
+        import urllib.parse
+        callback_url = url_for('auth_google_callback', _external=True)
+        params = {
+            'client_id': client_id,
+            'redirect_uri': callback_url,
+            'response_type': 'code',
+            'scope': 'openid email profile',
+            'access_type': 'online',
+            'prompt': 'select_account',
+        }
+        auth_url = 'https://accounts.google.com/o/oauth2/v2/auth?' + urllib.parse.urlencode(params)
+        return redirect(auth_url)
+
+
+    @app.route('/auth/google/callback')
+    @csrf.exempt
+    def auth_google_callback():
+        """Receives the OAuth2 authorization code and signs the user in."""
+        import urllib.parse, urllib.request, json as _json, base64
+        code = request.args.get('code')
+        error = request.args.get('error')
+        if error or not code:
+            flash(f'Google login cancelled: {error or "no code"}')
+            return redirect(url_for('login'))
+        client_id = app.config.get('GOOGLE_CLIENT_ID', '')
+        client_secret = os.environ.get('GOOGLE_CLIENT_SECRET', '')
+        callback_url = url_for('auth_google_callback', _external=True)
+        token_data = urllib.parse.urlencode({
+            'code': code,
+            'client_id': client_id,
+            'client_secret': client_secret,
+            'redirect_uri': callback_url,
+            'grant_type': 'authorization_code',
+        }).encode()
+        try:
+            req = urllib.request.Request(
+                'https://oauth2.googleapis.com/token',
+                data=token_data, method='POST'
+            )
+            with urllib.request.urlopen(req) as resp:
+                token_resp = _json.loads(resp.read())
+            id_tok = token_resp.get('id_token', '')
+            # Decode JWT payload (Google already verified the code — safe for prototype)
+            payload_b64 = id_tok.split('.')[1]
+            payload_b64 += '=' * (4 - len(payload_b64) % 4)
+            user_info = _json.loads(base64.urlsafe_b64decode(payload_b64))
+            email = user_info.get('email')
+            if not email:
+                flash('Could not get email from Google.')
+                return redirect(url_for('login'))
+            if not get_user_by_email(email):
+                create_user(email, '', role='patient')
+            session.permanent = True
+            session['user_email'] = email
+            return redirect(url_for('index'))
+        except Exception as exc:
+            flash(f'Google login error: {str(exc)}')
+            return redirect(url_for('login'))
+
+
     def _normalize_entries(raw_entries):
         """Normalize DB results (TinyDB dicts or Mongo docs) into objects
         with consistent attributes: .id, .filename, .narrative, .timestamp, .patient_id"""
