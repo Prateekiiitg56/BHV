@@ -14,3 +14,8 @@ textblob>=0.17
 
 # Embedded DB fallback for single-command installs
 tinydb>=4.7
+
+# LLM interaction
+openai>=1.0
+
+gunicorn>=21.0

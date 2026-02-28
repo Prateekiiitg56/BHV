@@ -1,0 +1,96 @@
+# CodeRabbit Configuration for Behavioral Health Vault (BHV)
+# Docs: https://docs.coderabbit.ai/guides/configure-coderabbit
+
+language: "en-US"
+
+# Review settings
+reviews:
+  # High-level summary of the PR
+  high_level_summary: true
+
+  # Generate poem — disable for a professional project
+  poem: false
+
+  # Display a review walkthrough table for each file
+  review_status: true
+
+  # Collapse reviews by default to keep PR clean
+  collapse_walkthrough: false
+
+  # Tone: assertive, informative, etc.
+  request_changes_workflow: true
+
+  # Automatic review when a PR is opened or updated
+  auto_review:
+    enabled: true
+    # Do not review draft PRs
+    drafts: false
+    # Trigger on base branches
+    base_branches:
+      - "main"
+      - "develop"
+
+  # Focus areas for the AI reviewer
+  path_instructions:
+    - path: "bhv/full_app.py"
+      instructions: |
+        This is the main Flask application file. Review for:
+        - Authentication and authorization checks on every route (every route touching sensitive data must verify `current_user()` and role)
+        - CSRF protection — all state-changing POST routes must have CSRF tokens
+        - SQL/NoSQL injection risks (though we use TinyDB/MongoDB via ODM)
+        - Sensitive data leakage (password hashes must never appear in API responses or logs)
+        - Redirect-after-POST pattern is used correctly
+        - Flash messages are appropriate and not overly verbose
+
+    - path: "bhv/db.py"
+      instructions: |
+        This is the database abstraction layer supporting both TinyDB (local) and MongoDB (production).
+        Review for:
+        - Parity between TinyDB and MongoDB branches — every function must exist in both
+        - Password hashes must NEVER be returned in list/get functions unless explicitly needed
+        - ObjectId conversions wrapped in try/except to avoid 500 errors
+        - No raw user input passed directly to DB queries without sanitization
+
+    - path: "templates/**"
+      instructions: |
+        Jinja2 HTML templates. Review for:
+        - XSS risks — user-supplied content must use `{{ var }}` (auto-escaped), never `{{ var | safe }}` unless explicitly safe
+        - All forms must include `{{ csrf_token() }}` hidden input
+        - No hardcoded credentials, tokens, or secrets
+
+    - path: "static/**"
+      instructions: |
+        Static assets (CSS, JS). Review for:
+        - No inline JS that exposes sensitive data
+        - No `eval()` or `innerHTML` with untrusted content
+        - No API keys or secrets committed
+
+    - path: "scripts/**"
+      instructions: |
+        Utility scripts (e.g. seed_admins.py). These should never be run in production automatically.
+        Review for hardcoded credentials or passwords.
+
+# Files/paths to ignore entirely during review
+path_filters:
+  - "!data/**"           # TinyDB JSON data files
+  - "!uploads/**"        # Patient uploaded files
+  - "!*.pyc"
+  - "!__pycache__/**"
+  - "!.venv/**"
+  - "!venv/**"
+  - "!node_modules/**"
+  - "!*.min.js"
+  - "!*.min.css"
+
+# Chat — allow @coderabbitai mentions in PR comments
+chat:
+  auto_reply: true
+
+# Knowledge base — help CodeRabbit understand the project
+knowledge_base:
+  learnings:
+    scope: auto
+  issues:
+    scope: auto
+  pull_requests:
+    scope: auto

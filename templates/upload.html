@@ -4,36 +4,120 @@
 <section class="section">
   <div class="container" style="max-width:560px">
     <div class="card">
-      <div class="section-header" style="margin-bottom:1.5rem">
-        <h2 class="section-title" style="font-size:1.5rem">Upload a Record</h2>
-        <p class="section-subtitle">
-          Share a file or image along with a narrative describing this moment in your journey.
-          Every upload is versioned and immutable.
+      <div class="section-header"
+        style="margin-bottom:2.5rem; border-bottom: 1px solid var(--c-border); padding-bottom: 2rem;">
+        <h2 class="section-title" style="font-size:1.75rem; color: var(--slate-800);">Document a Moment in Your Journey
+        </h2>
+        <p class="section-subtitle" style="font-size: 1.05rem; line-height: 1.7; color: var(--slate-600);">
+          Share an observation, a personal milestone, or a medical file.
+          Every entry is immutably versioned to ensure your history remains secure and unaltered over time.
         </p>
       </div>
 
       <form method="post" enctype="multipart/form-data">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
         {% if is_admin %}
         <label for="patient_id">Patient Email <small>(upload on behalf of a patient)</small></label>
         <input id="patient_id" type="email" name="patient_id" placeholder="patient@example.com" />
         {% endif %}
 
-        <label for="file">Choose a File</label>
-        <input id="file" type="file" name="file" required />
+        <label for="file" style="margin-bottom: 0.5rem;">Upload Document or Image</label>
+        <div style="background: var(--snow); border-radius: var(--radius-sm); padding: 0.5rem; margin-bottom: 1.5rem;">
+          <input id="file" type="file" name="file" required
+            style="border: none; background: transparent; padding: 0.5rem;" />
+        </div>
 
-        <label for="narrative">Your Narrative</label>
-        <textarea id="narrative" name="narrative" rows="4"
-          placeholder="Describe what this entry means to you — any context for your recovery journey…"></textarea>
+        {% if request.args.get('journey_id') and request.args.get('stage_id') %}
+        <input type="hidden" name="journey_id" value="{{ request.args.get('journey_id') }}">
+        <input type="hidden" name="stage_id" value="{{ request.args.get('stage_id') }}">
+        <div
+          style="background:var(--sage-50); border:1px solid var(--sage-300); padding:1rem; border-radius:var(--radius-sm); margin-bottom:1.5rem;">
+          <p
+            style="color:var(--sage-dark); font-weight:600; font-size:0.95rem; margin:0; display:flex; gap:8px; align-items:center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Adding entry directly to your selected timeline stage.
+          </p>
+        </div>
 
-        <div class="btn-group">
-          <button class="btn btn-primary" type="submit">Upload Record</button>
-          <a class="btn btn-secondary" href="{{ url_for('index') }}">Cancel</a>
+        {% elif not is_admin %}
+        <label for="journey_id">Which Recovery Journey does this belong to? (Optional)</label>
+        <select id="journey_id" name="journey_id"
+          style="width: 100%; padding: 0.5rem; margin-bottom: 1rem; border: 1px solid var(--c-border); border-radius: var(--radius-sm);">
+          <option value="">-- Standalone Entry (No specific journey) --</option>
+          {% for j in journeys %}
+          {% set tid = j.template_id|string %}
+          {% set tname = namespace(value="Journey") %}
+          {% for t in templates %}
+          {% set t_id = t.doc_id|string if t.doc_id else t._id|string %}
+          {% if t_id == tid %}{% set tname.value = t.name %}{% endif %}
+          {% endfor %}
+          <option value="{{ j.id_str }}">
+            {{ tname.value }} (Started: {{ j.started_at[:10] }})
+          </option>
+          {% endfor %}
+        </select>
+        {% if not journeys %}
+        <p style="font-size:0.85rem; color:var(--slate-400); margin-bottom: 1.5rem;">You haven't started any structured
+          journeys yet. <a href="{{ url_for('my_journey') }}">Start one here</a>.</p>
+        {% endif %}
+
+        {% else %}
+        <!-- Admin Journey Selection -->
+        <label for="journey_id">Which Recovery Journey does this belong to? (Optional)</label>
+        <select id="journey_id" name="journey_id"
+          style="width: 100%; padding: 0.5rem; margin-bottom: 0.5rem; border: 1px solid var(--c-border); border-radius: var(--radius-sm);">
+          <option value="">-- Standalone Entry (No specific journey) --</option>
+        </select>
+        <small style="display:block; margin-bottom:1.5rem; color:var(--slate-600);">Enter a patient email above to
+          automatically see their active journeys.</small>
+
+        <script>
+          document.addEventListener('DOMContentLoaded', function () {
+            const emailInput = document.getElementById('patient_id');
+            const journeySelect = document.getElementById('journey_id');
+
+            if (emailInput && journeySelect) {
+              emailInput.addEventListener('blur', async function () {
+                const email = this.value.trim();
+                journeySelect.innerHTML = '<option value="">-- Standalone Entry (No specific journey) --</option>';
+                if (email) {
+                  try {
+                    const res = await fetch('/api/journeys?email=' + encodeURIComponent(email));
+                    if (res.ok) {
+                      const journeys = await res.json();
+                      journeys.forEach(j => {
+                        const opt = document.createElement('option');
+                        opt.value = j.id;
+                        opt.textContent = j.name + ' (Started: ' + (j.started_at ? j.started_at.substring(0, 10) : 'N/A') + ')';
+                        journeySelect.appendChild(opt);
+                      });
+                    }
+                  } catch (err) {
+                    console.error("Failed to load journeys", err);
+                  }
+                }
+              });
+            }
+          });
+        </script>
+        {% endif %}
+
+
+        <label for="narrative" style="margin-top: 1.5rem;">Your Narrative Reflection</label>
+        <textarea id="narrative" name="narrative" rows="5"
+          placeholder="What does this entry mean to you? Add any context needed for your recovery tracker…"
+          style="margin-bottom: 2rem; border-radius: var(--radius-sm);"></textarea>
+
+        <div class="btn-group" style="padding-top: 1rem; border-top: 1px solid var(--cloud);">
+          <button class="btn btn-primary btn-lg" type="submit">Save to Secure Vault</button>
+          <a class="btn btn-secondary btn-lg" href="{{ url_for('index') }}">Cancel</a>
         </div>
       </form>
     </div>
   </div>
 </section>
 {% endblock %}
-

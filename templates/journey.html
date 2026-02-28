@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}My Journey{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 2rem;">
+    <h2>{{ current_template.name if current_template else 'My Recovery Journey' }}</h2>
+    <div style="display: flex; gap: 10px;">
+        {% if current_journey %}
+        <a href="{{ url_for('upload') }}" class="btn btn-primary" style="box-shadow: var(--shadow-sm);">+ Add Entry</a>
+        <form
+            action="{{ url_for('delete_journey', journey_id=current_journey.doc_id if current_journey.doc_id else (current_journey._id if current_journey._id else current_journey.id)) }}"
+            method="POST" style="margin: 0;"
+            onsubmit="return confirm('Are you sure you want to permanently delete this timeline and all its stages? This cannot be undone.');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <button type="submit" class="btn action-danger"
+                style="box-shadow: var(--shadow-sm); background-color: var(--c-danger); color: white;">Delete
+                Timeline</button>
+        </form>
+        {% endif %}
+        <a href="{{ url_for('journey_overview') }}" class="btn btn-secondary">Timeline Overview</a>
+    </div>
+</div>
+
+{% if not current_journey %}
+<div class="card empty-state"
+    style="padding: 3rem; max-width: 600px; margin: 4rem auto; text-align: center; box-shadow: var(--shadow-md); border-radius: var(--radius-lg);">
+    <h3
+        style="margin-bottom: 1rem; font-family: var(--font-editorial); font-size: 1.5rem; color: var(--c-primary-hover);">
+        Your timeline is a blank canvas.</h3>
+    <p style="color: var(--c-text-secondary); margin-bottom: 2rem; font-size: 1.05rem; line-height: 1.6;">
+        Every story starts somewhere. Choose a structured recovery path below, and we'll build a personalized tracker
+        where you can safely document your reflections, medical notes, and milestones over time.
+    </p>
+
+    <div
+        style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; text-align: left;">
+
+        <!-- Blank Canvas Card -->
+        <form action="{{ url_for('start_journey') }}" method="POST" style="margin: 0; padding: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="template_id" value="custom" />
+
+            <div
+                style="background: var(--c-surface-alt); border: 2px dashed var(--c-primary); padding: 1.5rem; border-radius: var(--radius-md); box-shadow: var(--shadow-sm);">
+                <h4
+                    style="margin-bottom: 0.5rem; font-family: var(--font-editorial); font-size: 1.15rem; color: var(--c-primary);">
+                    + Blank Canvas
+                </h4>
+                <p style="color: var(--c-text-secondary); font-size: 0.9rem; margin: 0 0 1rem 0; line-height: 1.4;">
+                    Create a custom journey from scratch. You define the stages and pace.
+                </p>
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 1rem;">
+                    <input type="text" name="custom_journey_name" placeholder="Journey Name (e.g. Anxiety Recovery)"
+                        style="padding: 0.5rem; border-radius: 4px; border: 1px solid var(--c-border);" required>
+                    <input type="text" name="custom_stage_name" placeholder="First Stage Name (e.g. Starting Point)"
+                        style="padding: 0.5rem; border-radius: 4px; border: 1px solid var(--c-border);" required>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    Start Custom Journey &rarr;
+                </button>
+            </div>
+        </form>
+
+        <!-- Admin Defined Templates -->
+        {% for temp in available_templates %}
+        <form action="{{ url_for('start_journey') }}" method="POST" style="margin: 0; padding: 0;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+            <input type="hidden" name="template_id"
+                value="{{ temp.doc_id if temp.doc_id else (temp._id if temp._id else getattr(temp, 'id', '')) }}" />
+
+            <button type="submit"
+                style="width: 100%; text-align: left; background: var(--c-surface-alt); border: 2px solid transparent; padding: 1.5rem; border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s ease; box-shadow: var(--shadow-sm);"
+                onmouseover="this.style.borderColor='var(--c-primary)'; this.style.transform='translateY(-2px)';"
+                onmouseout="this.style.borderColor='transparent'; this.style.transform='translateY(0)';">
+                <h4
+                    style="margin-bottom: 0.5rem; font-family: var(--font-editorial); font-size: 1.15rem; color: var(--c-heading);">
+                    {{ temp.name }}</h4>
+                <p style="color: var(--c-text-secondary); font-size: 0.9rem; margin: 0; line-height: 1.4;">{{
+                    temp.description|default('Start tracking your structured recovery path.') }}</p>
+                <div style="margin-top: 1rem; color: var(--c-primary); font-size: 0.85rem; font-weight: 600;">Start
+                    Journey &rarr;</div>
+            </button>
+        </form>
+        {% endfor %}
+    </div>
+
+    <div style="border-top: 1px solid var(--c-border); margin: 2rem 0;"></div>
+
+    <p style="font-size: 0.9rem; margin-bottom: 1rem;">Just want to attach an isolated file?</p>
+    <a href="{{ url_for('upload') }}" class="btn secondary">Upload Standalone Entry</a>
+</div>
+{% else %}
+<!-- 3D Zigzag Timeline View -->
+<div class="roadmap-viewport">
+    <div class="roadmap-container">
+        <div class="roadmap-path"></div>
+
+        {% set current_idx = namespace(value=-1) %}
+        {% for s in stages %}
+        {% set sid = s._id|string if s._id else s.doc_id|string %}
+        {% if sid == current_journey.current_stage_id %}
+        {% set current_idx.value = loop.index0 %}
+        {% endif %}
+        {% endfor %}
+
+        {% for s in stages %}
+        {% set sid = s._id|string if s._id else s.doc_id|string %}
+        {% set is_current = (current_journey.current_stage_id == sid and not current_journey.completed) %}
+
+        {% set is_past = false %}
+        {% if current_journey.completed %}
+        {% set is_past = true %}
+        {% elif current_idx.value > -1 and loop.index0 < current_idx.value %} {% set is_past=true %} {% endif %} {% set
+            stage_entries=entries_by_stage.get(sid, []) %} <!-- Zigzag positioning: alternate left/right. In CSS we'll
+            make odds lean right, evens lean left, creating a path. -->
+            <div class="roadmap-node {% if is_current %}current{% elif is_past %}past{% endif %}"
+                style="animation-delay: {{ loop.index0 * 150 }}ms;">
+                <div class="node-marker">
+                    <div class="node-dot">{{ s.order_index }}</div>
+                </div>
+
+                <div class="board-wrapper">
+                    <div class="node-board {% if is_current %}active-board{% endif %}">
+                        <div
+                            style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1rem;">
+                            <h3 class="stage-title" style="margin-bottom:0;">{{ s.name }}</h3>
+                            <a href="{{ url_for('upload', journey_id=current_journey.doc_id if current_journey.doc_id else (current_journey._id if current_journey._id else current_journey.id), stage_id=sid) }}"
+                                class="btn btn-sm"
+                                style="background:var(--snow); border:1px solid var(--mist); color:var(--slate-600); font-weight:600; padding:0.25rem 0.5rem; font-size:0.75rem; box-shadow:var(--shadow-sm); z-index: 10;">
+                                + Add Entry
+                            </a>
+                        </div>
+
+                        {% if is_current and loop.index0 < stages|length - 1 %} <div class="advance-action">
+                            <form
+                                action="{{ url_for('advance_journey_stage', journey_id=current_journey.doc_id if current_journey.doc_id else (current_journey._id if current_journey._id else current_journey.id)) }}"
+                                method="POST" style="margin: 0;">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                <button type="submit" class="btn action-primary btn-sm">Complete Stage</button>
+                            </form>
+                    </div>
+                    {% elif is_current and loop.index0 == stages|length - 1 and stages|length > 1 %}
+                    <div class="advance-action">
+                        <form
+                            action="{{ url_for('advance_journey_stage', journey_id=current_journey.doc_id if current_journey.doc_id else (current_journey._id if current_journey._id else current_journey.id)) }}"
+                            method="POST" style="margin: 0;">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                            <button type="submit" class="btn btn-primary btn-sm"
+                                style="background:var(--sage-dark); color:white;">Finish Journey 🎉</button>
+                        </form>
+                    </div>
+                    {% endif %}
+
+                    {% if stage_entries %}
+                    <div class="billboard-entries">
+                        {% for e in stage_entries %}
+                        <div class="mini-picture">
+                            <div class="pic-header">
+                                <strong>{{ e.filename }}</strong>
+                                <span>{{ e.timestamp[:10] }}</span>
+                            </div>
+                            <div class="pic-body">
+                                "{{ e.narrative[:80] }}{% if e.narrative|length > 80 %}...{% endif %}"
+                            </div>
+                            <div class="pic-footer"
+                                style="display:flex; justify-content:space-between; align-items:center;">
+                                <a href="{{ url_for('file_version', patient_id=e.patient_id, filename=e.filename) }}">↓
+                                    Download</a>
+                                {% if session.user_email and session.user_email == e.patient_id %}
+                                <div style="display:flex; gap: 8px;">
+                                    <a href="{{ url_for('entry_edit', entry_id=e.id) }}"
+                                        style="color:var(--slate-600);">Edit</a>
+                                    <form action="{{ url_for('entry_delete', entry_id=e.id) }}" method="POST"
+                                        style="margin:0;">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit"
+                                            style="background:none; border:none; color:var(--c-danger); font-size:0.75rem; font-weight:600; text-transform:uppercase; cursor:pointer; padding:0;">Delete</button>
+                                    </form>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="empty-pic-text">No entries dropped here yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+    </div>
+    {% endfor %}
+
+    {% if current_journey.completed %}
+    <div class="roadmap-node completed-node" style="animation-delay: {{ stages|length * 150 }}ms;">
+        <div class="node-marker">
+            <div class="node-dot" style="background:var(--sage-dark); color:white;">★</div>
+        </div>
+        <div class="board-wrapper">
+            <div class="node-board active-board">
+                <h3 class="stage-title" style="color:var(--sage-dark);">Journey Complete</h3>
+                <p style="color:var(--slate-600); font-size:0.9rem; margin-bottom: 1.5rem;">You have successfully
+                    finished this structured
+                    recovery path. Great work.</p>
+                <div style="display: flex; gap: 10px;">
+                    <a href="{{ url_for('download_journey', journey_id=current_journey.doc_id if current_journey.doc_id else (current_journey._id if current_journey._id else current_journey.id)) }}"
+                        target="_blank" class="btn action-primary btn-sm">Download Summary</a>
+                    <a href="{{ url_for('my_journey', new='1') }}" class="btn btn-secondary btn-sm">Start a Fresh
+                        Journey</a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+</div>
+
+{% if not current_journey.completed %}
+<!-- Add New Stage Form -->
+<div class="card"
+    style="margin-top: 3rem; padding: 2rem; border-top: 3px solid var(--c-primary-soft); background: var(--c-surface-alt);">
+    <h4 style="font-family: var(--font-editorial); color: var(--c-heading); margin-bottom: 0.5rem;">+ Add New Stage</h4>
+    <p style="color: var(--c-text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Define a new phase or milestone
+        for this journey. It will be added to the end of the timeline.</p>
+
+    <form
+        action="{{ url_for('add_journey_stage', journey_id=current_journey.doc_id if current_journey.doc_id else (current_journey._id if current_journey._id else current_journey.id)) }}"
+        method="POST" style="display: flex; gap: 15px; align-items: flex-start; max-width: 600px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <div style="flex: 1;">
+            <input type="text" name="stage_name" placeholder="Stage Name (e.g. 'Month 2 Reflection')" required
+                style="width: 100%; margin-bottom: 10px;">
+            <input type="text" name="stage_description" placeholder="Short description (optional)" style="width: 100%;">
+        </div>
+        <button type="submit" class="btn btn-secondary" style="white-space: nowrap;">Add Stage</button>
+    </form>
+</div>
+{% endif %}
+
+<style>
+    /* Staggered load animation */
+    @keyframes slideUpFade {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .timeline-card-stagger {
+        animation: slideUpFade 0.6s cubic-bezier(0.25, 1, 0.5, 1) both;
+    }
+</style>
+{% endif %}
+
+<div style="margin-top: 3rem; text-align: center;">
+    <a href="{{ url_for('my_entries') }}" class="btn btn-secondary">&larr; Return to Dashboard</a>
+</div>
+{% endblock %}

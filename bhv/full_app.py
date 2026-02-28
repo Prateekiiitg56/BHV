@@ -7,9 +7,18 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 
-from .db import init_db, create_user, get_user_by_email, create_entry, list_entries_for_patient, list_all_entries, get_entry, delete_entry, update_entry
+from .db import (
+    init_db, create_user, get_user_by_email, create_entry, list_entries_for_patient,
+    list_all_entries, get_entry, delete_entry, update_entry,
+    create_disease_template, get_disease_templates, get_disease_template,
+    create_disease_stage, get_stages_for_template, clone_disease_template,
+    assign_patient_journey, get_patient_journeys, update_patient_journey_stage,
+    complete_patient_journey, delete_patient_journey,
+    list_all_users, list_all_journeys, admin_delete_journey, admin_rename_journey, delete_user
+)
 from .storage.git_adapter import GitAdapter
 import difflib
+from datetime import datetime
 
 UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uploads'))
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -42,42 +51,15 @@ def create_app(testing: bool = False, upload_folder: str = None):
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 86400 * 7  # 7 days
+    app.config['GOOGLE_CLIENT_ID'] = os.environ.get('GOOGLE_CLIENT_ID', '')
 
     # Optional verbose request logging for debugging upload/CSRF issues.
     # Enable with `BHV_REQUEST_DEBUG=1`.
     app.config['REQUEST_DEBUG'] = str(os.environ.get('BHV_REQUEST_DEBUG', '')).lower() in ('1', 'true', 'yes')
     
-    if app.config['REQUEST_DEBUG']:
-        # Install a small WSGI middleware to log raw request headers and cookies
-        # BEFORE other Flask before_request handlers (CSRFProtect registers a before_request).
-        original_wsgi = app.wsgi_app
-
-        def _logging_middleware(environ, start_response):
-            try:
-                method = environ.get('REQUEST_METHOD')
-                path = environ.get('PATH_INFO', '')
-                if method == 'POST' and path.startswith('/upload'):
-                    print('---MW /upload START---')
-                    # print some useful request metadata available at WSGI level
-                    print('REQUEST_METHOD:', method)
-                    print('PATH_INFO:', path)
-                    print('CONTENT_TYPE:', environ.get('CONTENT_TYPE'))
-                    print('CONTENT_LENGTH:', environ.get('CONTENT_LENGTH'))
-                    print('HTTP_COOKIE:', environ.get('HTTP_COOKIE'))
-                    # print a few header-like env vars
-                    for k, v in environ.items():
-                        if k.startswith('HTTP_'):
-                            print(f"{k}: {v}")
-                    print('---MW /upload END---')
-            except Exception as _e:
-                print('Logging middleware error:', _e)
-            return original_wsgi(environ, start_response)
-
-        app.wsgi_app = _logging_middleware
     csrf = CSRFProtect(app)
-    google_client_id = os.environ.get('GOOGLE_CLIENT_ID')
-    # Expose Google client id to templates so the Google Identity button gets the client id
-    app.config['GOOGLE_CLIENT_ID'] = google_client_id or ''
+    google_client_id = os.environ.get('GOOGLE_CLIENT_ID', '')
+    app.config['GOOGLE_CLIENT_ID'] = google_client_id
 
     # init DB
     init_db()
@@ -86,10 +68,9 @@ def create_app(testing: bool = False, upload_folder: str = None):
     storage = GitAdapter(app.config['UPLOAD_FOLDER'])
 
     # Inject current year into all templates for footer
-    from datetime import datetime as _dt, timezone as _tz
     @app.context_processor
     def inject_year():
-        return {'current_year': _dt.now(_tz.utc).year}
+        return {'current_year': datetime.utcnow().year}
 
 
     def current_user():
@@ -157,72 +138,59 @@ def create_app(testing: bool = False, upload_folder: str = None):
         if request.method == 'POST':
             question = request.form.get('question', '').strip()
             if question:
-                # Get user's entries
                 patient_id = user.get('email') if user.get('role') == 'patient' else None
-                if patient_id:
-                    entries = list_entries_for_patient(patient_id)
-                elif user.get('role') == 'admin':
-                    entries = list_all_entries()
+                entries = list_entries_for_patient(patient_id) if patient_id else (list_all_entries() if user.get('role') == 'admin' else [])
+                
+                # Setup OpenRouter client
+                api_key = os.environ.get("OPENROUTER_API_KEY")
+                
+                if not api_key:
+                    answer = "Please configure your `OPENROUTER_API_KEY` in the `.env` file first!"
+                    # Show some recent entries as fallback
+                    results = entries[:5] 
                 else:
-                    entries = []
-                
-                # Simple keyword-based search and response
-                q_lower = question.lower()
-                
-                # Count queries
-                if any(word in q_lower for word in ['how many', 'count', 'total']):
-                    answer = f"You have {len(entries)} entries in your vault."
-                    results = entries[:5]  # Show first 5
-                
-                # List all queries
-                elif any(word in q_lower for word in ['show all', 'list all', 'all entries', 'all uploaded']):
-                    answer = f"Here are all {len(entries)} entries from your vault:"
-                    results = entries
-                
-                # Keyword search
-                elif 'mention' in q_lower or 'about' in q_lower or 'find' in q_lower:
-                    # Extract potential keywords after common search terms
-                    keywords = []
-                    for term in ['mention', 'mentioning', 'about', 'find', 'regarding', 'contains']:
-                        if term in q_lower:
-                            idx = q_lower.index(term) + len(term)
-                            remaining = question[idx:].strip()
-                            keywords.extend([w.strip('\"\\\',.;:!?') for w in remaining.split() if len(w) > 3])
-                    
-                    if keywords:
-                        matching = []
-                        for e in entries:
-                            narrative = (e.get('narrative') or '').lower()
-                            filename = (e.get('filename') or '').lower()
-                            if any(kw.lower() in narrative or kw.lower() in filename for kw in keywords):
-                                matching.append(e)
+                    try:
+                        from openai import OpenAI
+                        client = OpenAI(
+                            base_url="https://openrouter.ai/api/v1",
+                            api_key=api_key
+                        )
                         
-                        if matching:
-                            answer = f"Found {len(matching)} entries matching your query."
-                            results = matching
-                        else:
-                            answer = f"No entries found matching '{', '.join(keywords)}'."
-                    else:
-                        answer = "Please specify keywords to search for (e.g., 'Find entries mentioning anxiety')."
-                
-                # Summary
-                elif 'summar' in q_lower or 'overview' in q_lower:
-                    answer = f"Recovery Journey Summary:\\n\\nTotal Entries: {len(entries)}\\n"
-                    if entries:
-                        recent = entries[-5:] if len(entries) >= 5 else entries
-                        answer += f"\\nMost Recent Uploads:\\n"
-                        for e in reversed(recent):
-                            answer += f"• {e.get('filename')} - {e.get('narrative', 'No description')[:50]}...\\n"
-                    results = entries[-10:]  # Show last 10
-                
-                # Default response
-                else:
-                    answer = f"I found {len(entries)} entries in your vault. Try asking:\\n"
-                    answer += "• 'Show me all my entries'\\n"
-                    answer += "• 'Find entries mentioning [keyword]'\\n"
-                    answer += "• 'How many entries do I have?'\\n"
-                    answer += "• 'Summarize my recovery journey'"
-                    results = entries[:5]
+                        # Get active journey context
+                        journeys = get_patient_journeys(patient_id) if patient_id else []
+                        journey_context = f"The patient currently has {len(journeys)} active recovery journeys.\\n"
+                        
+                        # Format the context for the LLM
+                        context = "Here are the patient's journal entries:\\n"
+                        for i, e in enumerate(entries):
+                            narrative = e.get('narrative', 'No narrative provided')
+                            date = e.get('timestamp', 'Unknown date')
+                            filename = e.get('filename', 'Unknown document')
+                            context += f"Entry {i+1} ({date}) - File: {filename}: {narrative}\\n"
+                            
+                        prompt = f"{journey_context}\\n{context}\\n\\nBased on these journal entries and context, answer the following question as a helpful assistant. Be engaging, empathetic, and encouraging. Use markdown formatting (like bolding and bullet points) to make the text easy to read.\\n\\nQuestion: {question}"
+                        
+                        response = client.chat.completions.create(
+                            model="liquid/lfm-2.5-1.2b-instruct:free",
+                            messages=[
+                                {"role": "system", "content": "You are an empathetic, engaging, and highly intelligent AI assistant for the Behavioral Health Vault. Speak directly to the patient. Answer their questions based ONLY on the provided journal entries and context. Use HTML-friendly markdown formatting."},
+                                {"role": "user", "content": prompt}
+                            ],
+                            temperature=0.7,
+                            max_tokens=500
+                        )
+                        
+                        answer = response.choices[0].message.content
+                        
+                        # Still do a basic keyword match to populate related records purely for UI linking
+                        q_lower = question.lower()
+                        matching = [e for e in entries if any(word in (e.get('narrative') or '').lower() or word in (e.get('filename') or '').lower() for word in q_lower.split() if len(word) > 3)]
+                        results = matching if matching else entries[:3] # show matching or just some recent ones
+                        
+                    except Exception as e:
+                        print(f"OpenAI/OpenRouter error: {e}")
+                        answer = f"Sorry, there was an error communicating with the AI. Error details: {str(e)}"
+                        results = entries[:3]
                 
                 # Normalize results for template
                 normalized_results = []
@@ -249,12 +217,11 @@ def create_app(testing: bool = False, upload_folder: str = None):
             if len(password) < 6:
                 flash('Password must be at least 6 characters')
                 return redirect(url_for('signup'))
-            role = request.form.get('role', 'patient')
             if get_user_by_email(email):
                 flash('User already exists')
                 return redirect(url_for('signup'))
             pw = generate_password_hash(password)
-            create_user(email, pw, role=role)
+            create_user(email, pw, role='patient')
             session.permanent = True
             session['user_email'] = email
             return redirect(url_for('index'))
@@ -272,6 +239,8 @@ def create_app(testing: bool = False, upload_folder: str = None):
                 return redirect(url_for('login'))
             session.permanent = True
             session['user_email'] = user.get('email')
+            if user.get('role') == 'admin':
+                return redirect(url_for('admin'))
             return redirect(url_for('index'))
         return render_template('login.html')
 
@@ -286,12 +255,18 @@ def create_app(testing: bool = False, upload_folder: str = None):
     @csrf.exempt  # Google token in POST body, not CSRF token
     def auth_google():
         """Handle Google OAuth token from frontend (implicit/token flow)."""
+        google_client_id = app.config.get('GOOGLE_CLIENT_ID')
         token = request.form.get('token') or request.json.get('token')
         if not token or not google_client_id:
             flash('Google authentication not configured')
             return redirect(url_for('login'))
         try:
-            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), google_client_id)
+            idinfo = id_token.verify_oauth2_token(
+                token, 
+                google_requests.Request(), 
+                google_client_id,
+                clock_skew_in_seconds=60
+            )
             email = idinfo.get('email')
             user = get_user_by_email(email)
             if not user:
@@ -316,10 +291,12 @@ def create_app(testing: bool = False, upload_folder: str = None):
             elem.narrative = e.get('narrative')
             elem.timestamp = e.get('timestamp')
             elem.patient_id = e.get('patient_id')
+            elem.stage_id = e.get('stage_id')
+            elem.journey_id = e.get('journey_id')
             # TinyDB Document objects have a .doc_id attribute (int)
             # MongoDB documents have an '_id' field (ObjectId)
             if hasattr(e, 'doc_id'):
-                elem.id = e.doc_id
+                elem.id = str(e.doc_id)
             elif e.get('_id'):
                 elem.id = str(e['_id'])
             else:
@@ -328,11 +305,46 @@ def create_app(testing: bool = False, upload_folder: str = None):
         return norm
 
 
+    @app.route('/api/journeys')
+    def api_journeys():
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            return {"error": "Unauthorized"}, 403
+            
+        email = request.args.get('email')
+        if not email:
+            return []
+            
+        journeys = get_patient_journeys(email)
+        templates = get_disease_templates()
+        template_map = {str(t.get('doc_id', t.get('_id', getattr(t, 'id', '')))): t.get('name', 'Journey') for t in templates}
+        
+        result = []
+        for j in journeys:
+            if j.get('completed'):
+                continue
+            jid = str(j.get('id', j.get('_id', getattr(j, 'doc_id', None))))
+            tid = str(j.get('template_id'))
+            tname = template_map.get(tid, 'Journey')
+            result.append({
+                'id': jid,
+                'name': tname,
+                'started_at': j.get('started_at', '')
+            })
+        return result
+
     @app.route('/upload', methods=['GET', 'POST'])
     def upload():
         user = current_user()
         if not user:
             return redirect(url_for('login'))
+            
+        patient_email = user.get('email')
+        all_journeys = get_patient_journeys(patient_email) if user.get('role') == 'patient' else []
+        journeys = [j for j in all_journeys if not j.get('completed')]
+        for j in journeys:
+            j['id_str'] = str(j.get('id', j.get('_id', getattr(j, 'doc_id', ''))))
+        
         if request.method == 'POST':
             if app.config.get('REQUEST_DEBUG'):
                 # DEBUG: print headers/cookies/form to help diagnose missing CSRF/session issues
@@ -355,16 +367,35 @@ def create_app(testing: bool = False, upload_folder: str = None):
                 return redirect(url_for('upload'))
             filename = secure_filename(f.filename)
             patient_id = user.get('email') if user.get('role')=='patient' else request.form.get('patient_id')
+            
+            # Simplified routing: User selects a Journey ID, we auto-find the stage.
+            journey_id = request.form.get('journey_id')
+            stage_id = None
+            
+            if journey_id:
+                active_journeys = get_patient_journeys(patient_id)
+                for j in active_journeys:
+                    jid = str(j.get('id', j.get('_id', getattr(j, 'doc_id', None))))
+                    if jid == journey_id:
+                        stage_id = str(j.get('current_stage_id'))
+                        break
+                
             rel_path = os.path.join(patient_id, filename)
             data = f.read()
+            
+            # Prepare contextual commit message
+            action_desc = f"upload [Stage: {stage_id}]" if stage_id else "upload"
+
             # use storage adapter to save (creates commit)
-            storage.save(rel_path, data, user_id=user.get('email'), action='upload')
+            storage.save(rel_path, data, user_id=user.get('email'), action=action_desc)
             # record in DB
-            create_entry(patient_id, filename, narrative)
+            create_entry(patient_id, filename, narrative, stage_id=stage_id, journey_id=journey_id)
             flash('Uploaded')
-            return redirect(url_for('my_entries'))
+            return redirect(url_for('my_entries') if user.get('role') == 'patient' else url_for('admin'))
         is_admin = user.get('role') == 'admin'
-        return render_template('upload.html', is_admin=is_admin)
+        templates = get_disease_templates()
+        # Pass active journeys to the template for the dropdown menu
+        return render_template('upload.html', is_admin=is_admin, journeys=journeys, templates=templates)
 
 
     @app.route('/my')
@@ -374,16 +405,19 @@ def create_app(testing: bool = False, upload_folder: str = None):
             return redirect(url_for('login'))
         patient_id = user.get('email') if user.get('role')=='patient' else request.args.get('patient_id')
         entries = _normalize_entries(list_entries_for_patient(patient_id))
-        return render_template('patient.html', entries=entries, patient_id=patient_id)
+        now_hour = datetime.now().hour
+        return render_template('patient.html', entries=entries, patient_id=patient_id, now_hour=now_hour)
 
 
     @app.route('/admin')
     def admin():
         user = current_user()
-        if not user or user.get('role')!='admin':
+        if not user or user.get('role') != 'admin':
             return redirect(url_for('login'))
         entries = _normalize_entries(list_all_entries())
-        return render_template('admin.html', entries=entries)
+        all_users = list_all_users()
+        all_journeys = list_all_journeys()
+        return render_template('admin.html', entries=entries, all_users=all_users, all_journeys=all_journeys)
 
 
     @app.route('/uploads/<path:filename>')
@@ -399,6 +433,408 @@ def create_app(testing: bool = False, upload_folder: str = None):
         delete_entry(entry_id)
         flash('Deleted')
         return redirect(url_for('admin') if user.get('role')=='admin' else url_for('my_entries'))
+
+
+    @app.route('/admin/templates', methods=['GET', 'POST'])
+    def admin_templates():
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            return redirect(url_for('login'))
+        
+        if request.method == 'POST':
+            name = request.form.get('name')
+            desc = request.form.get('description', '')
+            if name:
+                create_disease_template(name, desc)
+                flash('Template created')
+            return redirect(url_for('admin_templates'))
+        
+        raw_templates = get_disease_templates()
+        # Inject doc_id as a plain dict key so Jinja can access it as t.id
+        templates = []
+        for t in raw_templates:
+            td = dict(t)
+            td['id'] = getattr(t, 'doc_id', None) or td.get('_id', '?')
+            templates.append(td)
+        return render_template('admin_templates.html', templates=templates)
+
+    @app.route('/admin/templates/<template_id>/stages', methods=['GET', 'POST'])
+    def admin_template_stages(template_id):
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            return redirect(url_for('login'))
+        
+        if request.method == 'POST':
+            name = request.form.get('name')
+            desc = request.form.get('description', '')
+            order = request.form.get('order_index', 0)
+            if name:
+                create_disease_stage(template_id, name, order, desc)
+                flash('Stage added')
+            return redirect(url_for('admin_template_stages', template_id=template_id))
+        
+        stages = get_stages_for_template(template_id)
+        return render_template('admin_stages.html', template_id=template_id, stages=stages)
+
+    @app.route('/admin/assign_journey', methods=['POST'])
+    def assign_journey():
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            return redirect(url_for('login'))
+        
+        patient_email = request.form.get('patient_email')
+        template_id = request.form.get('template_id')
+        
+        if patient_email and template_id:
+            # Clone global admin template into a personal patient copy
+            cloned_template_id = clone_disease_template(template_id, patient_email)
+            if cloned_template_id:
+                cloned_stages = get_stages_for_template(cloned_template_id)
+                initial_stage = str(cloned_stages[0].get('id', cloned_stages[0].get('_id', getattr(cloned_stages[0], 'doc_id', None)))) if cloned_stages else None
+                assign_patient_journey(patient_email, cloned_template_id, initial_stage)
+                flash('Journey assigned and cloned for patient.')
+            else:
+                flash('Failed to clone timeline.')
+        return redirect(url_for('admin'))
+
+
+    @app.route('/admin/journey/<journey_id>/delete', methods=['POST'])
+    def admin_delete_journey_route(journey_id):
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            return redirect(url_for('login'))
+        admin_delete_journey(journey_id)
+        flash('Journey deleted.')
+        return redirect(url_for('admin') + '#journeys')
+
+
+    @app.route('/admin/journey/<journey_id>/rename', methods=['POST'])
+    def admin_rename_journey_route(journey_id):
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            return redirect(url_for('login'))
+        new_name = request.form.get('new_name', '').strip()
+        if new_name:
+            admin_rename_journey(journey_id, new_name)
+            flash('Journey renamed.')
+        return redirect(url_for('admin') + '#journeys')
+
+
+    @app.route('/admin/user/<user_id>/delete', methods=['POST'])
+    def admin_delete_user_route(user_id):
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            return redirect(url_for('login'))
+        # Prevent admin from deleting themselves
+        target = list_all_users()
+        target_user = next((u for u in target if str(u.get('id')) == str(user_id)), None)
+        if target_user and target_user.get('email') == user.get('email'):
+            flash('You cannot delete your own admin account.')
+            return redirect(url_for('admin') + '#users')
+        delete_user(user_id)
+        flash('User account deleted.')
+        return redirect(url_for('admin') + '#users')
+
+
+    @app.route('/journey/start', methods=['POST'])
+    def start_journey():
+        """Patient-facing route to self-serve creating a custom timeline."""
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+            
+        patient_email = user.get('email')
+        template_id = request.form.get('template_id')
+        
+        if template_id == 'custom':
+            try:
+                custom_name = request.form.get('custom_journey_name', '').strip() or "My Custom Journey"
+                custom_stage = request.form.get('custom_stage_name', '').strip() or "Starting Point"
+                
+                # Create a brand new custom template for the patient
+                new_template_id = create_disease_template(
+                    name=custom_name,
+                    description="A personalized path created by the patient.",
+                    created_by=patient_email
+                )
+                # Add an initial stage so the journey isn't completely empty
+                initial_stage_id = create_disease_stage(
+                    template_id=new_template_id,
+                    name=custom_stage,
+                    order_index=1,
+                    description="The beginning of your custom journey."
+                )
+                assign_patient_journey(patient_email, new_template_id, str(initial_stage_id))
+                flash('Custom journey created! You can now add stages from the timeline view.')
+            except Exception as exc:
+                flash(f'An error occurred: {str(exc)}')
+
+        elif template_id:
+            cloned_template_id = clone_disease_template(template_id, patient_email)
+            if cloned_template_id:
+                cloned_stages = get_stages_for_template(cloned_template_id)
+                initial_stage = str(cloned_stages[0].get('id', getattr(cloned_stages[0], 'doc_id', None))) if cloned_stages else None
+                assign_patient_journey(patient_email, cloned_template_id, initial_stage)
+                flash('Timeline customized and created successfully!')
+        
+        # We don't have the exact inserted journey_id readily available across TinyDB/MongoDB without more refactoring, 
+        # so we rely on the my_journey route's new behavior of defaulting to the most recent journey `journeys[-1]`.
+        return redirect(url_for('my_journey'))
+
+    @app.route('/journey/<journey_id>/add_stage', methods=['POST'])
+    def add_journey_stage(journey_id):
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+            
+        patient_id = user.get('email')
+        stage_name = request.form.get('stage_name', '').strip()
+        stage_desc = request.form.get('stage_description', '').strip()
+        
+        if not stage_name:
+            flash('Stage name is required.')
+            return redirect(url_for('my_journey'))
+        
+        # Verify ownership or admin
+        journeys = get_patient_journeys(patient_id)
+        current_journey = next((j for j in journeys if str(j.get('id', j.get('_id', getattr(j, 'doc_id', None)))) == journey_id), None)
+        
+        is_admin = user.get('role') == 'admin'
+        
+        # If not the owner and not admin, deny
+        if not current_journey and not is_admin:
+            flash('Journey not found or access denied.')
+            return redirect(url_for('my_journey'))
+            
+        # If admin is accessing, they might be interacting from a different page, but let's assume they are on the patient's view
+        if not current_journey and is_admin:
+            # For simplicity in this demo, admin must pass the journey context. 
+            # In a robust system, we would fetch global journeys. We'll stick to patient scope for now if current_journey is None.
+            pass
+            
+        if current_journey:
+            template_id = current_journey.get('template_id')
+            stages = get_stages_for_template(template_id)
+            
+            # The order_index should be the next logical step
+            next_order_index = len(stages) + 1
+            
+            create_disease_stage(
+                template_id=template_id,
+                name=stage_name,
+                order_index=next_order_index,
+                description=stage_desc
+            )
+            flash(f'New stage "{stage_name}" added successfully!')
+            
+        return redirect(url_for('my_journey'))
+
+    @app.route('/journey/overview')
+    def journey_overview():
+        """Overview page showing all active journeys as horizontal tracking timelines."""
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+            
+        patient_id = user.get('email')
+        journeys = get_patient_journeys(patient_id)
+        
+        # Build a list of journey objects with their full stage lists and progress data
+        journeys_with_stages = []
+        for j in journeys:
+            template_id = j.get('template_id')
+            
+            # Get template to display its name
+            templates = get_disease_templates()
+            template = next((t for t in templates if str(t.get('doc_id', t.get('_id', getattr(t, 'id', '')))) == str(template_id)), {})
+            template_name = template.get('name', 'Recovery Journey')
+            
+            stages = get_stages_for_template(template_id)
+            current_stage_id = str(j.get('current_stage_id', ''))
+            
+            # Find the index of the current stage for progress calculation
+            current_idx = 0
+            for i, s in enumerate(stages):
+                sid = str(s.get('id', s.get('_id', getattr(s, 'doc_id', None))))
+                if sid == current_stage_id:
+                    current_idx = i
+                    break
+                    
+            journeys_with_stages.append({
+                'journey': j,
+                'stages': stages,
+                'current_stage_id': current_stage_id,
+                'current_idx': current_idx
+            })
+            
+        return render_template('journey_overview.html', journeys_data=journeys_with_stages)
+
+    @app.route('/journey', defaults={'view_journey_id': None})
+    @app.route('/journey/<view_journey_id>')
+    def my_journey(view_journey_id):
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+        
+        patient_id = user.get('email')
+        journeys = get_patient_journeys(patient_id)
+        
+        # Get baseline global templates so the patient can start one if they want
+        available_templates = get_disease_templates(created_by="admin")
+
+        show_new_journey = request.args.get('new') == '1'
+
+        if not journeys or show_new_journey:
+            return render_template(
+                'journey.html', 
+                journeys=journeys, 
+                stages=[], 
+                entries=[], 
+                current_journey=None,
+                available_templates=available_templates,
+                show_new_journey=show_new_journey
+            )
+        
+        # Select current journey
+        current_journey = None
+        if view_journey_id:
+            current_journey = next((j for j in journeys if str(j.get('id', j.get('_id', getattr(j, 'doc_id', None)))) == str(view_journey_id)), None)
+            
+        if not current_journey:
+            # Default to the most recently started journey (last in list)
+            current_journey = journeys[-1]
+            
+        template_id = current_journey.get('template_id')
+        
+        # Get stages
+        stages = get_stages_for_template(template_id)
+        
+        # Get entries
+        raw_entries = list_entries_for_patient(patient_id)
+        entries = _normalize_entries(raw_entries)
+        
+        # Group entries by stage (only for THIS journey)
+        entries_by_stage = {}
+        current_journey_id_str = str(current_journey.get('id', current_journey.get('_id', getattr(current_journey, 'doc_id', None))))
+        
+        for e in entries:
+            # We already have stage_id mapped in _normalize_entries
+            sid = str(e.stage_id) if e.stage_id else ''
+            # Only include entries that belong to this journey specifically
+            if getattr(e, 'journey_id', None) and str(e.journey_id) != current_journey_id_str:
+                continue
+                
+            if sid not in entries_by_stage:
+                entries_by_stage[sid] = []
+            entries_by_stage[sid].append(e)
+
+        current_template = get_disease_template(template_id)
+
+        return render_template(
+            'journey.html', 
+            journeys=journeys, 
+            current_journey=current_journey, 
+            stages=stages, 
+            entries_by_stage=entries_by_stage,
+            available_templates=available_templates,
+            current_template=current_template
+        )
+
+    @app.route('/journey/<journey_id>/delete', methods=['POST'])
+    def delete_journey(journey_id):
+        """Allows a patient or admin to delete a fully custom timeline."""
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+            
+        patient_id = user.get('email')
+        
+        # In a real app, an admin might be able to delete any journey. 
+        # For this implementation, we restrict deletion to the patient who owns it.
+        if delete_patient_journey(journey_id, patient_id):
+            flash('Journey timeline deleted successfully.')
+        else:
+            flash('Failed to delete timeline. You may not have permission.')
+            
+        return redirect(url_for('my_journey'))
+
+    @app.route('/journey/<journey_id>/download')
+    def download_journey(journey_id):
+        """Generates a print-friendly HTML view of the completed journey."""
+        user = current_user()
+        if not user:
+            return redirect(url_for('login'))
+            
+        patient_id = user.get('email')
+        
+        # Verify ownership
+        journeys = get_patient_journeys(patient_id)
+        current_journey = next((j for j in journeys if str(j.get('id', j.get('_id', getattr(j, 'doc_id', None)))) == journey_id), None)
+        
+        if not current_journey:
+            flash('Journey not found.')
+            return redirect(url_for('my_journey'))
+            
+        template_id = current_journey.get('template_id')
+        stages = get_stages_for_template(template_id)
+        
+        # Get entries
+        raw_entries = list_entries_for_patient(patient_id)
+        entries = _normalize_entries(raw_entries)
+        
+        entries_by_stage = {}
+        for e in entries:
+            sid = str(e.stage_id) if e.stage_id else ''
+            if sid not in entries_by_stage:
+                entries_by_stage[sid] = []
+            entries_by_stage[sid].append(e)
+            
+        return render_template(
+            'journey_download.html',
+            journey=current_journey,
+            stages=stages,
+            entries_by_stage=entries_by_stage
+        )
+
+    @app.route('/journey/<journey_id>/advance', methods=['POST'])
+    def advance_journey_stage(journey_id):
+        user = current_user()
+        if not user or user.get('role') != 'patient':
+            return redirect(url_for('login'))
+            
+        patient_id = user.get('email')
+        
+        # Verify ownership
+        journeys = get_patient_journeys(patient_id)
+        current_journey = next((j for j in journeys if str(j.get('id', j.get('_id', getattr(j, 'doc_id', None)))) == journey_id), None)
+        
+        if not current_journey:
+            flash('Journey not found.')
+            return redirect(url_for('my_journey'))
+            
+        template_id = current_journey.get('template_id')
+        stages = get_stages_for_template(template_id)
+        current_stage_id = str(current_journey.get('current_stage_id'))
+        
+        # Find index of current stage to determine the next one
+        current_idx = -1
+        for i, s in enumerate(stages):
+            if str(s.get('id', s.get('_id', getattr(s, 'doc_id', None)))) == current_stage_id:
+                current_idx = i
+                break
+                
+        # If we found it and it's not the last stage
+        if current_idx != -1 and current_idx < len(stages) - 1:
+            next_stage = stages[current_idx + 1]
+            next_stage_id = str(next_stage.get('id', next_stage.get('_id', getattr(next_stage, 'doc_id', None))))
+            update_patient_journey_stage(journey_id, next_stage_id)
+            flash('Stage marked as complete! You have moved to the next phase of your journey.')
+        elif current_idx == len(stages) - 1:
+            complete_patient_journey(journey_id)
+            flash('Congratulations, you have completed the final stage of this journey!')
+            
+        return redirect(url_for('my_journey'))
+
 
 
     @app.route('/entry/<entry_id>/edit', methods=['GET', 'POST'])

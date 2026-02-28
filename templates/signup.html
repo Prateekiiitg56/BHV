@@ -10,19 +10,13 @@
       </div>
 
       <form method="post">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
 
         <label for="email">Email Address</label>
         <input id="email" name="email" type="email" placeholder="you@example.com" required />
 
         <label for="password">Password</label>
         <input id="password" name="password" type="password" placeholder="Choose a strong password" required />
-
-        <label for="role">I am a</label>
-        <select id="role" name="role">
-          <option value="patient">Patient</option>
-          <option value="admin">Admin / Clinician</option>
-        </select>
 
         <div class="btn-group">
           <button class="btn btn-primary" type="submit">Create Account</button>
@@ -32,9 +26,8 @@
 
       <div class="oauth-divider">Or sign up with</div>
 
-      <div id="g_id_onload"
-           data-client_id="{{ config.get('GOOGLE_CLIENT_ID', '') }}"
-           data-callback="handleCredentialResponse">
+      <div id="g_id_onload" data-client_id="{{ config.get('GOOGLE_CLIENT_ID', '') }}"
+        data-callback="handleCredentialResponse">
       </div>
       <div class="g_id_signin" data-type="standard"></div>
 
@@ -47,18 +40,17 @@
 
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
-function handleCredentialResponse(response) {
-  const form = document.createElement('form');
-  form.method = 'POST';
-  form.action = '{{ url_for('auth_google') }}';
-  const tokenInput = document.createElement('input');
-  tokenInput.type = 'hidden';
-  tokenInput.name = 'token';
-  tokenInput.value = response.credential;
-  form.appendChild(tokenInput);
-  document.body.appendChild(form);
-  form.submit();
-}
+  function handleCredentialResponse(response) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = '{{ url_for('auth_google') }}';
+    const tokenInput = document.createElement('input');
+    tokenInput.type = 'hidden';
+    tokenInput.name = 'token';
+    tokenInput.value = response.credential;
+    form.appendChild(tokenInput);
+    document.body.appendChild(form);
+    form.submit();
+  }
 </script>
 {% endblock %}
-

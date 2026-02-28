@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Manage Stages | Admin{% endblock %}
+
+{% block content %}
+<h2>Manage Template Stages</h2>
+<p class="subtitle">Add ordered steps to the disease journey.</p>
+<p><a href="{{ url_for('admin_templates') }}">&larr; Back to Templates</a></p>
+
+<div class="grid" style="grid-template-columns: 1fr 1fr;">
+    <div class="card">
+        <h3>Add Stage</h3>
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+                <label>Stage Name</label>
+                <input type="text" name="name" required placeholder="e.g. Initial Diagnosis">
+            </div>
+            <div class="form-group">
+                <label>Order Index (Integer)</label>
+                <input type="number" name="order_index" required value="1">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" rows="3" placeholder="What happens in this stage?"></textarea>
+            </div>
+            <button type="submit" class="btn primary">Add Stage</button>
+        </form>
+    </div>
+
+    <div class="card">
+        <h3>Defined Stages (Ordered)</h3>
+        {% if stages %}
+        <div class="timeline" style="margin-top: 1rem;">
+            {% for s in stages %}
+            <div class="timeline-item" style="padding-left: 20px; border-left: 2px solid var(--accent-light); margin-bottom: 20px; position: relative;">
+                <div style="position: absolute; left: -6px; top: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--accent);"></div>
+                <strong>{{ s.order_index }}. {{ s.name }}</strong>
+                <p style="margin: 5px 0 0 0; color: #666; font-size: 0.9em;">{{ s.description }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <p class="empty-state">No stages defined yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

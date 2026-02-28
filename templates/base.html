@@ -1,124 +1,157 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="Haven Health Vault — Secure, versioned behavioral health records. Where every story finds its strength." />
-    <title>{% block title %}Behavioral Health Vault{% endblock %}</title>
-    <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml" />
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/alaska.css') }}" />
-    <script>
-      // Prevent flash of wrong theme — apply saved preference before first paint
-      (function(){var t=localStorage.getItem('bhv-theme');if(t==='dark'||(t!=='light'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){document.documentElement.setAttribute('data-theme','dark')}})();
-    </script>
-  </head>
-  <body class="{% block body_class %}{% endblock %}">
-    <a class="skip-link" href="#main-content">Skip to content</a>
 
-    <!-- ─── Header ─── -->
-    <header class="site-header">
-      <div class="container header-inner">
-        <a class="brand" href="{{ url_for('index') }}" aria-label="Behavioral Health Vault home">
-          <img class="brand-logo" src="{{ url_for('static', filename='img/alaska-logo.svg') }}" alt="" />
-          <span class="brand-mark">Behavioral Health Vault</span>
-        </a>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description"
+    content="Haven Health Vault — Secure, versioned behavioral health records. Where every story finds its strength." />
+  <title>{% block title %}Behavioral Health Vault{% endblock %}</title>
+  <link rel="icon" href="{{ url_for('static', filename='img/favicon.svg') }}" type="image/svg+xml" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/alaska.css') }}" />
+  <script>
+    // Prevent flash of wrong theme — apply saved preference before first paint
+    (function () { var t = localStorage.getItem('bhv-theme'); if (t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme:dark)').matches)) { document.documentElement.setAttribute('data-theme', 'dark') } })();
+  </script>
+</head>
 
-        <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
-          <span></span><span></span><span></span>
-        </button>
+<body class="{% block body_class %}{% endblock %}">
+  <a class="skip-link" href="#main-content">Skip to content</a>
 
-        <nav class="site-nav" aria-label="Main navigation">
-          <a href="{{ url_for('index') }}">Home</a>
-          <a href="{{ url_for('features') }}">Features</a>
-          <a href="{{ url_for('how_it_works') }}">How It Works</a>
-          {% if session.user_email %}
-          <a href="{{ url_for('upload') }}">Upload</a>
-          <a href="{{ url_for('dashboard') }}">My Records</a>
-          <a href="{{ url_for('ask_me') }}">Ask Me</a>
-          {% endif %}
-        </nav>
+  <!-- ─── Header ─── -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="{{ url_for('index') }}" aria-label="Behavioral Health Vault home">
+        <img class="brand-logo" src="{{ url_for('static', filename='img/alaska-logo.svg') }}" alt="" />
+        <span class="brand-mark">Behavioral Health Vault</span>
+      </a>
 
-        <nav class="site-actions" aria-label="Account">
-          {% if session.user_email %}
-            <a href="{{ url_for('profile') }}">Profile</a>
-            <a href="{{ url_for('logout') }}">Sign Out</a>
-          {% else %}
-            <a href="{{ url_for('login') }}">Sign In</a>
-            <a class="action-primary" href="{{ url_for('signup') }}">Get Started</a>
-          {% endif %}
-          <button class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
-            <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>
-            <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <button class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+
+      <nav class="site-nav" aria-label="Main navigation">
+        <a href="{{ url_for('index') }}">Home</a>
+        {% if not session.user_email %}
+        <a href="{{ url_for('features') }}">Features</a>
+        <a href="{{ url_for('how_it_works') }}">How It Works</a>
+        {% endif %}
+        {% if session.user_email %}
+        <a href="{{ url_for('dashboard') }}">My Records</a>
+        {% endif %}
+      </nav>
+
+      <nav class="site-actions" aria-label="Account">
+        {% if session.user_email %}
+        <div class="user-dropdown">
+          <button class="user-dropdown-btn" aria-haspopup="true" aria-expanded="false">
+            My Account
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
           </button>
-        </nav>
-      </div>
-    </header>
-
-    {% block hero %}{% endblock %}
-
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="flash" role="alert">{% for m in messages %}{{ m }}{% endfor %}</div>
-      {% endif %}
-    {% endwith %}
-
-    <!-- ─── Main ─── -->
-    <main class="main" id="main-content">
-      {% block content %}{% endblock %}
-    </main>
-
-    <!-- ─── Footer ─── -->
-    <footer class="site-footer">
-      <div class="container">
-        <div class="footer-inner">
-          <div>
-            <div class="footer-brand-text">Behavioral Health Vault</div>
-            <p class="footer-tagline">Where every story finds its strength. Secure, versioned behavioral health records for patients and clinicians.</p>
-            <div class="footer-socials">
-              <a href="#" class="footer-social-icon" aria-label="Facebook">f</a>
-              <a href="#" class="footer-social-icon" aria-label="Twitter">t</a>
-              <a href="https://github.com/Prateekiiitg56/BHV" class="footer-social-icon" aria-label="GitHub">gh</a>
-            </div>
-          </div>
-          <div>
-            <div class="footer-title">Platform</div>
-            <div class="footer-links">
-              <a href="{{ url_for('features') }}">Features</a>
-              <a href="{{ url_for('how_it_works') }}">How It Works</a>
-              <a href="{{ url_for('testimonials') }}">Testimonials</a>
-            </div>
-          </div>
-          <div>
-            <div class="footer-title">Resources</div>
-            <div class="footer-links">
-              <a href="{{ url_for('index') }}">Home</a>
-              <a href="{{ url_for('upload') }}">Upload Records</a>
-              <a href="{{ url_for('dashboard') }}">View Records</a>
-            </div>
-          </div>
-          <div>
-            <div class="footer-title">Account</div>
-            <div class="footer-links">
-              {% if session.user_email %}
-                <a href="{{ url_for('profile') }}">Profile</a>
-                <a href="{{ url_for('ask_me') }}">Ask Me</a>
-                <a href="{{ url_for('logout') }}">Sign Out</a>
-              {% else %}
-                <a href="{{ url_for('login') }}">Sign In</a>
-                <a href="{{ url_for('signup') }}">Create Account</a>
-                <a href="{{ url_for('contact') }}">Contact</a>
-              {% endif %}
-            </div>
+          <div class="user-dropdown-menu">
+            <a href="{{ url_for('profile') }}">Profile</a>
+            <a href="{{ url_for('upload') }}">Upload</a>
+            <a href="{{ url_for('ask_me') }}">Ask Me</a>
+            <hr style="border: 0; border-top: 1px solid var(--c-border); margin: 4px 0;">
+            <a href="{{ url_for('logout') }}" style="color: var(--c-danger);">Sign Out</a>
           </div>
         </div>
-        <div class="footer-bottom">
-          <span class="footer-copy">&copy; {{ current_year }} Behavioral Health Vault. All rights reserved.</span>
-          <span class="footer-copy">A GSoC project for the Alaska Division of Behavioral Health.</span>
+        {% else %}
+        <a href="{{ url_for('login') }}">Sign In</a>
+        <a class="action-primary" href="{{ url_for('signup') }}">Get Started</a>
+        {% endif %}
+        <button class="theme-toggle" aria-label="Toggle dark mode" title="Toggle dark mode">
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" />
+          </svg>
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+        </button>
+      </nav>
+    </div>
+  </header>
+
+  {% block hero %}{% endblock %}
+
+  {% with messages = get_flashed_messages() %}
+  {% if messages %}
+  <div class="flash" role="alert">{% for m in messages %}{{ m }}{% endfor %}</div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- ─── Main ─── -->
+  <main class="main" id="main-content">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ─── Footer ─── -->
+  <footer class="site-footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div>
+          <div class="footer-brand-text">Behavioral Health Vault</div>
+          <p class="footer-tagline">Where every story finds its strength. Secure, versioned behavioral health records
+            for patients and clinicians.</p>
+          <div class="footer-socials">
+            <a href="#" class="footer-social-icon" aria-label="Facebook">f</a>
+            <a href="#" class="footer-social-icon" aria-label="Twitter">t</a>
+            <a href="https://github.com/Prateekiiitg56/BHV" class="footer-social-icon" aria-label="GitHub">gh</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-title">Platform</div>
+          <div class="footer-links">
+            <a href="{{ url_for('features') }}">Features</a>
+            <a href="{{ url_for('how_it_works') }}">How It Works</a>
+            <a href="{{ url_for('testimonials') }}">Testimonials</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-title">Resources</div>
+          <div class="footer-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('upload') }}">Upload Records</a>
+            <a href="{{ url_for('dashboard') }}">View Records</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-title">Account</div>
+          <div class="footer-links">
+            {% if session.user_email %}
+            <a href="{{ url_for('profile') }}">Profile</a>
+            <a href="{{ url_for('ask_me') }}">Ask Me</a>
+            <a href="{{ url_for('logout') }}">Sign Out</a>
+            {% else %}
+            <a href="{{ url_for('login') }}">Sign In</a>
+            <a href="{{ url_for('signup') }}">Create Account</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            {% endif %}
+          </div>
         </div>
       </div>
-    </footer>
+      <div class="footer-bottom">
+        <span class="footer-copy">&copy; {{ current_year }} Behavioral Health Vault. All rights reserved.</span>
+        <span class="footer-copy">A GSoC project for the Alaska Division of Behavioral Health.</span>
+      </div>
+    </div>
+  </footer>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    {% block scripts %}{% endblock %}
-  </body>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+
 </html>

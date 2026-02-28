@@ -1,0 +1,230 @@
+{% extends 'base.html' %}
+{% block title %}Journey Overview — Behavioral Health Vault{% endblock %}
+{% block content %}
+<section class="section">
+    <div class="container">
+        <div class="section-header"
+            style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid var(--c-border); padding-bottom: 1rem; margin-bottom: 3rem;">
+            <div>
+                <h2 class="section-title" style="margin-bottom: 0.5rem;">Journey Overview</h2>
+                <p class="section-subtitle"
+                    style="font-family: var(--font-editorial); font-style: italic; color: var(--slate-600);">A
+                    high-level view of your active recovery paths.</p>
+            </div>
+            <div>
+                <a href="{{ url_for('my_entries') }}" class="btn btn-secondary">Back to Dashboard</a>
+            </div>
+        </div>
+
+        {% if journeys_data %}
+        {% for data in journeys_data %}
+        {% set j = data.journey %}
+        {% set stages = data.stages %}
+        {% set current_idx = data.current_idx %}
+
+        <div class="card"
+            style="margin-bottom: 3rem; padding: 2.5rem; border-radius: var(--radius-lg); overflow: hidden;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2.5rem;">
+                <div>
+                    <h3
+                        style="font-family: var(--font-editorial); font-size: 1.5rem; color: var(--c-heading); margin-bottom: 0.25rem;">
+                        {{ j.template_name|default('Recovery Journey') }}</h3>
+                    <p
+                        style="color: var(--c-text-secondary); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                        Started {{ j.started_at[:10] if j.started_at else 'Recently' }}</p>
+                </div>
+                <div style="display: flex; gap: 10px; align-items: center;">
+                    <a href="{{ url_for('my_journey', view_journey_id=j.doc_id if j.doc_id else (j._id if j._id else j.id)) }}"
+                        class="btn btn-sm btn-outline-white"
+                        style="color: var(--c-primary); border-color: var(--c-primary);">View Details</a>
+                    <form
+                        action="{{ url_for('delete_journey', journey_id=j.doc_id if j.doc_id else (j._id if j._id else j.id)) }}"
+                        method="POST" style="margin: 0;"
+                        onsubmit="return confirm('Are you sure you want to permanently delete this timeline? This cannot be undone.');">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                        <button type="submit" class="btn btn-sm action-danger"
+                            style="background-color: var(--c-danger); color: white; border: none; cursor: pointer; border-radius: 4px; padding: 0.5rem 1rem; font-weight: 600;">Delete</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Horizontal Timeline Progress Bar -->
+            <div class="horizontal-timeline">
+                {% for s in stages %}
+                {% set is_past = loop.index0 < current_idx %} {% set is_current=loop.index0==current_idx %} {% set
+                    is_future=loop.index0> current_idx %}
+
+                    <div class="ht-step {% if is_past %}completed{% elif is_current %}active{% endif %}">
+                        <div class="ht-node">
+                            {% if is_past %}
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="20 6 9 17 4 12"></polyline>
+                            </svg>
+                            {% else %}
+                            <span>{{ loop.index }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="ht-label">{{ s.name }}</div>
+                        {% if not loop.last %}
+                        <div class="ht-line"></div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="card empty-state"
+            style="padding: 4rem 2rem; text-align: center; border-radius: var(--radius-lg); border: 2px dashed var(--mist); background: transparent; box-shadow: none;">
+            <h3
+                style="font-family: var(--font-editorial); font-size: 1.75rem; color: var(--slate-600); margin-bottom: 1rem;">
+                No Active Journeys</h3>
+            <p
+                style="color: var(--c-text-secondary); font-size: 1.1rem; line-height: 1.6; max-width: 480px; margin: 0 auto 2.5rem;">
+                You haven't started a structured recovery path yet.
+            </p>
+            <a href="{{ url_for('my_journey') }}" class="btn btn-primary btn-lg"
+                style="box-shadow: var(--shadow-sm);">Start a Structured Journey</a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<style>
+    .horizontal-timeline {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        position: relative;
+        padding-top: 1rem;
+        padding-bottom: 1rem;
+    }
+
+    .ht-step {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        z-index: 2;
+    }
+
+    .ht-step:last-child {
+        flex: 0;
+    }
+
+    .ht-node {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: var(--c-surface-alt);
+        border: 2px solid var(--mist);
+        color: var(--c-text-secondary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+        position: relative;
+        z-index: 2;
+        transition: all 0.3s ease;
+    }
+
+    .ht-line {
+        position: absolute;
+        top: 18px;
+        /* half of node height */
+        left: calc(50% + 18px);
+        /* start after the center node */
+        width: calc(100% - 36px);
+        /* span to the next node */
+        height: 4px;
+        background: var(--mist);
+        z-index: 1;
+        transform: translateY(-50%);
+        transition: all 0.3s ease;
+    }
+
+    /* Completed state */
+    .ht-step.completed .ht-node {
+        background: var(--c-primary);
+        border-color: var(--c-primary);
+        color: var(--white);
+    }
+
+    .ht-step.completed .ht-line {
+        background: var(--c-primary);
+    }
+
+    /* Active state */
+    .ht-step.active .ht-node {
+        border-color: var(--c-primary);
+        border-width: 3px;
+        color: var(--c-primary);
+        background: var(--white);
+        box-shadow: 0 0 0 4px var(--c-primary-soft);
+    }
+
+    /* Active stage's line to the *next* stage should remain gray */
+
+    .ht-label {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--c-text-secondary);
+        text-align: center;
+        max-width: 100px;
+        line-height: 1.3;
+    }
+
+    .ht-step.completed .ht-label {
+        color: var(--slate-800);
+    }
+
+    .ht-step.active .ht-label {
+        color: var(--c-primary);
+        font-weight: 700;
+    }
+
+    /* Responsive fixes */
+    @media (max-width: 768px) {
+        .horizontal-timeline {
+            flex-direction: column;
+            align-items: flex-start;
+            padding-left: 2rem;
+        }
+
+        .ht-step {
+            flex-direction: row;
+            align-items: center;
+            margin-bottom: 2rem;
+            width: 100%;
+        }
+
+        .ht-step:last-child {
+            margin-bottom: 0;
+        }
+
+        .ht-node {
+            margin-bottom: 0;
+            margin-right: 1.5rem;
+        }
+
+        .ht-label {
+            text-align: left;
+            max-width: none;
+            font-size: 1rem;
+        }
+
+        .ht-line {
+            top: 36px;
+            left: 17px;
+            /* align with center of 36px node */
+            width: 4px;
+            height: calc(100% + 2rem - 36px);
+            transform: none;
+        }
+    }
+</style>
+{% endblock %}

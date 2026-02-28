@@ -1,17 +1,463 @@
 {% extends 'base.html' %}
-{% block title %}Admin Dashboard — Behavioral Health Vault{% endblock %}
+{% block title %}Admin Control Panel — Behavioral Health Vault{% endblock %}
+
 {% block content %}
-<section class="section">
+<style>
+  /* ── Admin Panel Styles ──────────────────────────────────────────────────── */
+  .admin-header {
+    background: linear-gradient(135deg, rgba(43, 42, 39, .96) 0%, rgba(70, 107, 79, .92) 100%);
+    color: #fff;
+    padding: 3rem 2rem 2.5rem;
+    margin: -2.5rem -1.5rem 2rem;
+    border-radius: 0 0 24px 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .admin-header::before {
+    content: '';
+    position: absolute;
+    top: -30%;
+    right: -10%;
+    width: 40%;
+    height: 160%;
+    background: rgba(255, 255, 255, .04);
+    transform: rotate(15deg);
+    pointer-events: none;
+  }
+
+  .admin-header h1 {
+    color: #fff;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    margin-bottom: .5rem;
+  }
+
+  .admin-header p {
+    color: rgba(255, 255, 255, .75);
+    font-size: .95rem;
+  }
+
+  .admin-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .admin-stat {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius);
+    padding: 1.25rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--duration-md) var(--ease-spring), box-shadow var(--duration-md) var(--ease);
+  }
+
+  .admin-stat:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .admin-stat__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: var(--c-primary-soft);
+    color: var(--c-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .admin-stat__value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    font-family: var(--font-editorial);
+    color: var(--c-primary);
+    line-height: 1;
+  }
+
+  .admin-stat__label {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--c-text-secondary);
+    margin-top: .2rem;
+  }
+
+  /* Tabs */
+  .admin-tabs {
+    display: flex;
+    gap: .5rem;
+    border-bottom: 2px solid var(--c-border);
+    margin-bottom: 2rem;
+    overflow-x: auto;
+  }
+
+  .admin-tab {
+    padding: .75rem 1.5rem;
+    font-weight: 600;
+    font-size: .875rem;
+    color: var(--c-text-secondary);
+    border: none;
+    background: none;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    white-space: nowrap;
+    transition: all var(--duration) var(--ease);
+  }
+
+  .admin-tab:hover {
+    color: var(--c-primary);
+  }
+
+  .admin-tab.active {
+    color: var(--c-primary);
+    border-bottom-color: var(--c-primary);
+  }
+
+  .admin-panel {
+    display: none;
+  }
+
+  .admin-panel.active {
+    display: block;
+  }
+
+  /* Table */
+  .admin-table-wrap {
+    overflow-x: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--c-border);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .admin-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .admin-table th {
+    background: var(--c-surface-alt);
+    padding: .875rem 1rem;
+    text-align: left;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--c-text-secondary);
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  .admin-table td {
+    padding: .875rem 1rem;
+    font-size: .875rem;
+    color: var(--c-text);
+    border-bottom: 1px solid rgba(224, 222, 216, .5);
+    vertical-align: middle;
+  }
+
+  .admin-table tr:last-child td {
+    border-bottom: none;
+  }
+
+  .admin-table tr:hover td {
+    background: var(--c-surface-alt);
+  }
+
+  .role-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+
+  .role-admin {
+    background: rgba(70, 107, 79, .12);
+    color: var(--c-primary);
+    border: 1px solid rgba(70, 107, 79, .25);
+  }
+
+  .role-patient {
+    background: rgba(61, 165, 180, .1);
+    color: #3da5b4;
+    border: 1px solid rgba(61, 165, 180, .2);
+  }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: .7rem;
+    font-weight: 600;
+  }
+
+  .status-active {
+    background: rgba(70, 107, 79, .1);
+    color: var(--c-primary);
+  }
+
+  .status-done {
+    background: rgba(61, 165, 180, .1);
+    color: #3da5b4;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+  }
+
+  /* Inline rename form */
+  .rename-form {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+  }
+
+  .rename-form input {
+    padding: .3rem .6rem;
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-sm);
+    font-size: .8rem;
+    width: 160px;
+  }
+
+  .rename-form button {
+    padding: .3rem .75rem;
+    font-size: .8rem;
+  }
+
+  .action-cell {
+    display: flex;
+    gap: .5rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  /* Tools card grid */
+  .tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1.25rem;
+  }
+
+  .tool-card {
+    background: var(--c-surface);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-lg);
+    padding: 1.75rem;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .tool-card h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: .5rem;
+  }
+
+  .tool-card p {
+    font-size: .875rem;
+    color: var(--c-text-secondary);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+</style>
+
+<section class="section" style="padding-top: 0;">
   <div class="container">
-    <div class="section-header">
-      <span class="section-label">Administration</span>
-      <h2 class="section-title">All Patient Records</h2>
-      <p class="section-subtitle">Manage and review records across all patients.</p>
+
+    <!-- Header -->
+    <div class="admin-header">
+      <h1>⚙️ Admin Control Panel</h1>
+      <p>Full system overview — manage users, journeys, records, and clinical pathways.</p>
     </div>
 
-    {% if entries %}
+    <!-- Stats Row -->
+    <div class="admin-stats">
+      <div class="admin-stat">
+        <div class="admin-stat__icon">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <path
+              d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"
+              fill="currentColor" />
+          </svg>
+        </div>
+        <div>
+          <div class="admin-stat__value">{{ all_users | length }}</div>
+          <div class="admin-stat__label">Total Users</div>
+        </div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat__icon" style="background: rgba(61,165,180,.1); color:#3da5b4;">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <path
+              d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"
+              fill="currentColor" />
+          </svg>
+        </div>
+        <div>
+          <div class="admin-stat__value" style="color:#3da5b4;">{{ all_journeys | length }}</div>
+          <div class="admin-stat__label">Total Journeys</div>
+        </div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat__icon" style="background: rgba(232,177,74,.1); color:#e8b14a;">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <path d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm4 18H6V4h7v5h5v11z"
+              fill="currentColor" />
+          </svg>
+        </div>
+        <div>
+          <div class="admin-stat__value" style="color:#e8b14a;">{{ entries | length }}</div>
+          <div class="admin-stat__label">Total Records</div>
+        </div>
+      </div>
+      <div class="admin-stat">
+        <div class="admin-stat__icon" style="background: rgba(217,83,79,.1); color:#d9534f;">
+          <svg viewBox="0 0 24 24" width="22" height="22">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"
+              fill="currentColor" />
+          </svg>
+        </div>
+        <div>
+          <div class="admin-stat__value" style="color:#d9534f;">{{ all_journeys | selectattr('completed') | list |
+            length }}</div>
+          <div class="admin-stat__label">Completed</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="admin-tabs" id="admin-tabs">
+      <button class="admin-tab active" data-tab="users">👥 Users</button>
+      <button class="admin-tab" data-tab="journeys" id="journeys-tab">🗺 Journeys</button>
+      <button class="admin-tab" data-tab="records">📄 Records</button>
+      <button class="admin-tab" data-tab="tools">🔧 Tools</button>
+    </div>
+
+    <!-- ══ Users Panel ══════════════════════════════════════════════════════ -->
+    <div class="admin-panel active" id="panel-users">
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Entries</th>
+              <th>Journeys</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for u in all_users %}
+            <tr>
+              <td style="color:var(--c-text-secondary); font-size:.75rem;">{{ u.id }}</td>
+              <td><strong>{{ u.email }}</strong></td>
+              <td>
+                <span class="role-badge {% if u.role == 'admin' %}role-admin{% else %}role-patient{% endif %}">
+                  {{ u.role }}
+                </span>
+              </td>
+              <td>{{ entries | selectattr('patient_id', 'equalto', u.email) | list | length }}</td>
+              <td>{{ all_journeys | selectattr('patient_id', 'equalto', u.email) | list | length }}</td>
+              <td class="action-cell">
+                {% if u.role != 'admin' %}
+                <form method="POST" action="{{ url_for('admin_delete_user_route', user_id=u.id) }}"
+                  onsubmit="return confirm('Delete user {{ u.email }}? This cannot be undone.')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                </form>
+                {% else %}
+                <span style="font-size:.75rem; color:var(--c-text-secondary);">Protected</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="6" style="text-align:center; color:var(--c-text-secondary); padding: 2rem;">No users found.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ Journeys Panel ═══════════════════════════════════════════════════ -->
+    <div class="admin-panel" id="panel-journeys">
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Journey Name</th>
+              <th>Patient</th>
+              <th>Status</th>
+              <th>Started</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for j in all_journeys %}
+            <tr>
+              <td style="color:var(--c-text-secondary); font-size:.75rem;">{{ j.id }}</td>
+              <td><strong>{{ j.template_name }}</strong></td>
+              <td style="font-size:.85rem; color:var(--c-text-secondary);">{{ j.patient_id }}</td>
+              <td>
+                {% if j.completed %}
+                <span class="status-badge status-done"><span class="status-dot"></span>Completed</span>
+                {% else %}
+                <span class="status-badge status-active"><span class="status-dot"></span>Active</span>
+                {% endif %}
+              </td>
+              <td style="font-size:.8rem; color:var(--c-text-secondary);">{{ j.started_at[:10] if j.started_at else '—'
+                }}</td>
+              <td class="action-cell">
+                <!-- Rename form -->
+                <form method="POST" action="{{ url_for('admin_rename_journey_route', journey_id=j.id) }}"
+                  class="rename-form">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <input type="text" name="new_name" placeholder="New name…" required>
+                  <button class="btn btn-sm btn-primary" type="submit">Rename</button>
+                </form>
+                <!-- Delete form -->
+                <form method="POST" action="{{ url_for('admin_delete_journey_route', journey_id=j.id) }}"
+                  onsubmit="return confirm('Delete journey \'{{ j.template_name }}\'? This cannot be undone.')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-sm btn-danger" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% else %}
+            <tr>
+              <td colspan="6" style="text-align:center; color:var(--c-text-secondary); padding: 2rem;">No journeys
+                found.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ Records Panel ════════════════════════════════════════════════════ -->
+    <div class="admin-panel" id="panel-records">
+      {% if entries %}
       <div class="entry-grid">
-      {% for e in entries %}
+        {% for e in entries %}
         <div class="entry-card">
           <div class="entry-card__title">{{ e.filename }}</div>
           <div class="entry-card__meta">
@@ -19,24 +465,74 @@
             {% if e.timestamp %} · {{ e.timestamp }}{% endif %}
           </div>
           {% if e.narrative %}
-            <div class="entry-card__narrative">"{{ e.narrative }}"</div>
+          <div class="entry-card__narrative">"{{ e.narrative }}"</div>
           {% endif %}
           <div class="entry-card__actions">
             <a class="btn btn-sm" href="{{ url_for('uploads', filename=e.patient_id + '/' + e.filename) }}">Download</a>
             <a class="btn btn-sm btn-secondary" href="{{ url_for('entry_edit', entry_id=e.id) }}">Edit</a>
             <form style="display:inline" method="post" action="{{ url_for('entry_delete', entry_id=e.id) }}">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
               <button class="btn btn-sm btn-danger" type="submit">Remove</button>
             </form>
           </div>
         </div>
-      {% endfor %}
+        {% endfor %}
       </div>
-    {% else %}
+      {% else %}
       <div class="empty-state">
         <p>No records in the system yet.</p>
       </div>
-    {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- ══ Tools Panel ═══════════════════════════════════════════════════════ -->
+    <div class="admin-panel" id="panel-tools">
+      <div class="tools-grid">
+        <div class="tool-card">
+          <h3>🗂 Clinical Pathways</h3>
+          <p>Define and manage structured disease templates and treatment stages for patient assignment.</p>
+          <a href="{{ url_for('admin_templates') }}" class="btn btn-primary">Manage Templates</a>
+        </div>
+
+        <div class="tool-card">
+          <h3>🔗 Assign Journey to Patient</h3>
+          <p>Assign a predefined clinical pathway to a specific patient email.</p>
+          <form method="POST" action="{{ url_for('assign_journey') }}"
+            style="display: flex; flex-direction:column; gap: .75rem;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="email" name="patient_email" placeholder="patient@example.com" required>
+            <input type="text" name="template_id" placeholder="Template ID (from Manage Templates)" required>
+            <button type="submit" class="btn btn-primary">Assign Journey</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
   </div>
 </section>
+
+<script>
+  (function () {
+    const tabs = document.querySelectorAll('.admin-tab');
+    const panels = document.querySelectorAll('.admin-panel');
+
+    // Handle hash on page load (e.g. redirect back to #journeys or #users)
+    const hash = window.location.hash.replace('#', '');
+    const tabMap = { users: 0, journeys: 1, records: 2, tools: 3 };
+    if (hash && tabMap[hash] !== undefined) {
+      activateTab(tabMap[hash]);
+    }
+
+    tabs.forEach((tab, i) => {
+      tab.addEventListener('click', () => activateTab(i));
+    });
+
+    function activateTab(idx) {
+      tabs.forEach((t, i) => {
+        t.classList.toggle('active', i === idx);
+        panels[i].classList.toggle('active', i === idx);
+      });
+    }
+  })();
+</script>
 {% endblock %}
