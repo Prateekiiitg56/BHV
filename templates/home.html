@@ -156,26 +156,64 @@
       <h2 class="section-title" id="steps-heading">Four Simple Steps</h2>
       <p class="section-subtitle">From sign-up to full record management in under a minute.</p>
     </div>
-    <div class="steps-row">
-      <div class="step-item fade-in">
-        <span class="step-number">1</span>
-        <h3>Create Account</h3>
-        <p>Sign up with email or Google. Your data stays private from the start.</p>
-      </div>
-      <div class="step-item fade-in">
-        <span class="step-number">2</span>
-        <h3>Upload Records</h3>
-        <p>Add images, documents, or free-text narratives describing your journey.</p>
-      </div>
-      <div class="step-item fade-in">
-        <span class="step-number">3</span>
-        <h3>Track Changes</h3>
-        <p>Every edit creates a new version. Browse diffs to see exactly what changed.</p>
-      </div>
-      <div class="step-item fade-in">
-        <span class="step-number">4</span>
-        <h3>Share Insights</h3>
-        <p>Use Ask Me to search your records or share history with your care team.</p>
+
+    <!-- 3D Zigzag Timeline View -->
+    <div class="roadmap-viewport" style="padding-top: 0;">
+      <div class="roadmap-container">
+        <div class="roadmap-path"></div>
+
+        <div class="roadmap-node past" style="animation-delay: 0ms;">
+          <div class="node-marker">
+            <div class="node-dot">1</div>
+          </div>
+          <div class="board-wrapper">
+            <div class="node-board">
+              <h3 class="stage-title">Create Account</h3>
+              <p style="color:var(--c-text-secondary); font-size: 0.95rem;">Sign up with email or Google. Your data
+                stays private from the start.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="roadmap-node past" style="animation-delay: 150ms;">
+          <div class="node-marker">
+            <div class="node-dot">2</div>
+          </div>
+          <div class="board-wrapper">
+            <div class="node-board">
+              <h3 class="stage-title">Upload Records</h3>
+              <p style="color:var(--c-text-secondary); font-size: 0.95rem;">Add images, documents, or free-text
+                narratives describing your journey.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="roadmap-node past" style="animation-delay: 300ms;">
+          <div class="node-marker">
+            <div class="node-dot">3</div>
+          </div>
+          <div class="board-wrapper">
+            <div class="node-board">
+              <h3 class="stage-title">Track Changes</h3>
+              <p style="color:var(--c-text-secondary); font-size: 0.95rem;">Every edit creates a new version. Browse
+                diffs to see exactly what changed.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="roadmap-node current" style="animation-delay: 450ms;">
+          <div class="node-marker">
+            <div class="node-dot">4</div>
+          </div>
+          <div class="board-wrapper">
+            <div class="node-board active-board">
+              <h3 class="stage-title">Share Insights</h3>
+              <p style="color:var(--c-text-secondary); font-size: 0.95rem;">Use Ask Me to search your records or share
+                history with your care team.</p>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
