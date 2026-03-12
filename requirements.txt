@@ -8,17 +8,5 @@ google-auth-oauthlib>=1.0
 Pillow>=9.0
 openai>=1.0
 textblob>=0.17
-
-# Test runner
-pytest>=7.0
-
-# Embedded DB fallback for single-command installs
 tinydb>=4.7
-
-# LLM interaction
-openai>=1.0
-
-# Image processing for fuzzy color-emotion analysis
-Pillow>=10.0
-
-gunicorn>=21.0
+gunicorn==21.2.0
