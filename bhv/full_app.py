@@ -1,5 +1,8 @@
 import os
 import re
+import csv
+import io
+import threading
 from flask import Flask, render_template, request, redirect, url_for, session, send_from_directory, flash, Response
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.utils import secure_filename
@@ -14,14 +17,25 @@ from .db import (
     create_disease_stage, get_stages_for_template, clone_disease_template,
     assign_patient_journey, get_patient_journeys, update_patient_journey_stage,
     complete_patient_journey, delete_patient_journey,
-    list_all_users, list_all_journeys, admin_delete_journey, admin_rename_journey, delete_user
+    list_all_users, list_all_journeys, admin_delete_journey, admin_rename_journey, delete_user,
+    update_entry_color_analysis, get_all_color_analyses
 )
 from .storage.git_adapter import GitAdapter
+from .storage.github_adapter import GitHubAdapter
+from .nlp import analyze_narrative
+from .color_analysis import analyze_image_colors
 import difflib
 from datetime import datetime
 
 UPLOAD_FOLDER = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uploads'))
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Allowed image MIME types
+ALLOWED_IMAGE_EXTENSIONS = {'jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff'}
+
+def _allowed_image(filename: str) -> bool:
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+
 
 
 def is_valid_email(email):
@@ -64,13 +78,31 @@ def create_app(testing: bool = False, upload_folder: str = None):
     # init DB
     init_db()
 
-    # storage adapter (use GitAdapter under uploads)
-    storage = GitAdapter(app.config['UPLOAD_FOLDER'])
+    # ── Storage adapters (both always initialised) ───────────────────────────
+    # local_storage is always available.
+    # github_adapter is available only when GITHUB_ADMIN_TOKEN is configured.
+    local_storage = GitAdapter(app.config['UPLOAD_FOLDER'])
+    github_adapter = GitHubAdapter()
+    github_configured = github_adapter.is_configured()
 
-    # Inject current year into all templates for footer
+    # Default storage (used when user doesn't pick one, e.g. API calls):
+    default_storage_mode = os.environ.get('STORAGE_MODE', 'local').lower()
+    app.config['GITHUB_CONFIGURED'] = github_configured
+    app.config['DEFAULT_STORAGE_MODE'] = default_storage_mode
+
+    # Max image upload size (configurable via env, default 10 MB)
+    max_mb = int(os.environ.get('MAX_IMAGE_SIZE_MB', '10'))
+    app.config['MAX_CONTENT_LENGTH'] = max_mb * 1024 * 1024
+    app.config['MAX_IMAGE_SIZE_MB'] = max_mb
+
+    # Inject globals into all templates
     @app.context_processor
-    def inject_year():
-        return {'current_year': datetime.utcnow().year}
+    def inject_globals():
+        return {
+            'current_year': datetime.utcnow().year,
+            'github_configured': github_configured,
+            'default_storage_mode': default_storage_mode,
+        }
 
 
     def current_user():
@@ -370,7 +402,7 @@ def create_app(testing: bool = False, upload_folder: str = None):
 
     def _normalize_entries(raw_entries):
         """Normalize DB results (TinyDB dicts or Mongo docs) into objects
-        with consistent attributes: .id, .filename, .narrative, .timestamp, .patient_id"""
+        with consistent attributes."""
         norm = []
         for e in raw_entries:
             elem = type('E', (), {})()
@@ -380,6 +412,13 @@ def create_app(testing: bool = False, upload_folder: str = None):
             elem.patient_id = e.get('patient_id')
             elem.stage_id = e.get('stage_id')
             elem.journey_id = e.get('journey_id')
+            # New enrichment fields
+            elem.emotion = e.get('emotion')
+            elem.sentiment_score = e.get('sentiment_score')
+            elem.sdoh_tags = e.get('sdoh_tags') or []
+            elem.storage_mode = e.get('storage_mode', 'local')
+            elem.github_repo_url = e.get('github_repo_url')
+            elem.color_analysis = e.get('color_analysis')
             # TinyDB Document objects have a .doc_id attribute (int)
             # MongoDB documents have an '_id' field (ObjectId)
             if hasattr(e, 'doc_id'):
@@ -425,16 +464,15 @@ def create_app(testing: bool = False, upload_folder: str = None):
         user = current_user()
         if not user:
             return redirect(url_for('login'))
-            
+
         patient_email = user.get('email')
         all_journeys = get_patient_journeys(patient_email) if user.get('role') == 'patient' else []
         journeys = [j for j in all_journeys if not j.get('completed')]
         for j in journeys:
             j['id_str'] = str(j.get('id', j.get('_id', getattr(j, 'doc_id', ''))))
-        
+
         if request.method == 'POST':
             if app.config.get('REQUEST_DEBUG'):
-                # DEBUG: print headers/cookies/form to help diagnose missing CSRF/session issues
                 try:
                     print('---DEBUG /upload START---')
                     print('Request Headers:')
@@ -447,18 +485,36 @@ def create_app(testing: bool = False, upload_folder: str = None):
                     print('---DEBUG /upload END---')
                 except Exception as _e:
                     print('DEBUG logging failed:', _e)
+
             f = request.files.get('file')
             narrative = request.form.get('narrative', '')
-            if not f:
+            emotion = request.form.get('emotion') or None
+
+            if not f or not f.filename:
                 flash('File required')
                 return redirect(url_for('upload'))
+
             filename = secure_filename(f.filename)
-            patient_id = user.get('email') if user.get('role')=='patient' else request.form.get('patient_id')
-            
-            # Simplified routing: User selects a Journey ID, we auto-find the stage.
+
+            # ── Image-only validation ────────────────────────────────────────
+            if not _allowed_image(filename):
+                allowed_str = ', '.join(sorted(ALLOWED_IMAGE_EXTENSIONS))
+                flash(f'Only image files are accepted ({allowed_str})')
+                return redirect(url_for('upload'))
+
+            image_data = f.read()
+
+            # ── File size check ──────────────────────────────────────────────
+            max_bytes = app.config['MAX_CONTENT_LENGTH']
+            if len(image_data) > max_bytes:
+                flash(f'Image exceeds the maximum allowed size of {app.config["MAX_IMAGE_SIZE_MB"]} MB.')
+                return redirect(url_for('upload'))
+
+            patient_id = user.get('email') if user.get('role') == 'patient' else request.form.get('patient_id')
+
+            # ── Journey / stage routing ──────────────────────────────────────
             journey_id = request.form.get('journey_id')
             stage_id = None
-            
             if journey_id:
                 active_journeys = get_patient_journeys(patient_id)
                 for j in active_journeys:
@@ -466,23 +522,88 @@ def create_app(testing: bool = False, upload_folder: str = None):
                     if jid == journey_id:
                         stage_id = str(j.get('current_stage_id'))
                         break
-                
+
             rel_path = os.path.join(patient_id, filename)
-            data = f.read()
-            
-            # Prepare contextual commit message
             action_desc = f"upload [Stage: {stage_id}]" if stage_id else "upload"
 
-            # use storage adapter to save (creates commit)
-            storage.save(rel_path, data, user_id=user.get('email'), action=action_desc)
-            # record in DB
-            create_entry(patient_id, filename, narrative, stage_id=stage_id, journey_id=journey_id)
-            flash('Uploaded')
+            # ── NLP analysis on narrative ────────────────────────────────────
+            sentiment_score, sdoh_tags = None, []
+            if narrative.strip():
+                try:
+                    sentiment_score, sdoh_tags = analyze_narrative(narrative)
+                except Exception as nlp_err:
+                    print(f'[NLP] Error: {nlp_err}')
+
+            # ── Per-upload storage destination ───────────────────────────────
+            # The form sends 'storage_dest' = 'local' | 'github'.
+            # Falls back to admin-configured default if not provided.
+            storage_dest = request.form.get('storage_dest', default_storage_mode)
+
+            github_repo_url = None
+            chosen_storage_mode = 'local'
+
+            if storage_dest == 'github':
+                if not github_configured:
+                    flash('GitHub storage is not configured. Your image was saved locally instead. '
+                          'Ask an admin to add GITHUB_ADMIN_TOKEN to the server configuration.',
+                          'warning')
+                    # fallback to local
+                    local_storage.save(rel_path, image_data,
+                                       user_id=user.get('email'), action=action_desc)
+                else:
+                    try:
+                        github_repo_url = github_adapter.save_with_metadata(
+                            rel_path, image_data, user_id=user.get('email'),
+                            action=action_desc, narrative=narrative,
+                            extra={'emotion': emotion, 'sdoh_tags': sdoh_tags}
+                        )
+                        chosen_storage_mode = 'github'
+                    except Exception as gh_err:
+                        flash(f'GitHub upload failed ({gh_err}). Saved locally instead.', 'warning')
+                        local_storage.save(rel_path, image_data,
+                                           user_id=user.get('email'), action=action_desc)
+            else:
+                local_storage.save(rel_path, image_data,
+                                   user_id=user.get('email'), action=action_desc)
+
+            # ── Record in DB ────────────────────────────────────────────────
+            entry_id = create_entry(
+                patient_id, filename, narrative,
+                stage_id=stage_id, journey_id=journey_id,
+                emotion=emotion,
+                sentiment_score=sentiment_score,
+                sdoh_tags=sdoh_tags,
+                storage_mode=chosen_storage_mode,
+                github_repo_url=github_repo_url,
+            )
+
+            # ── Async fuzzy color-emotion analysis ───────────────────────────
+            def _run_color_analysis(e_id, img_data):
+                try:
+                    result = analyze_image_colors(img_data)
+                    update_entry_color_analysis(e_id, result)
+                except Exception as ca_err:
+                    print(f'[ColorAnalysis] Error: {ca_err}')
+
+            analysis_thread = threading.Thread(
+                target=_run_color_analysis, args=(entry_id, image_data), daemon=True
+            )
+            analysis_thread.start()
+
+            flash('Image uploaded and saved to your vault!')
             return redirect(url_for('my_entries') if user.get('role') == 'patient' else url_for('admin'))
+
         is_admin = user.get('role') == 'admin'
         templates = get_disease_templates()
-        # Pass active journeys to the template for the dropdown menu
-        return render_template('upload.html', is_admin=is_admin, journeys=journeys, templates=templates)
+        return render_template(
+            'upload.html',
+            is_admin=is_admin,
+            journeys=journeys,
+            templates=templates,
+            max_image_size_mb=app.config['MAX_IMAGE_SIZE_MB'],
+            github_configured=github_configured,
+            default_storage_mode=default_storage_mode,
+        )
 
 
     @app.route('/my')
@@ -923,6 +1044,98 @@ def create_app(testing: bool = False, upload_folder: str = None):
         return redirect(url_for('my_journey'))
 
 
+    # ── Research Dashboard (admin only) ───────────────────────────────────────
+    @app.route('/research')
+    def research():
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            flash('Access denied — research dashboard is admin only.')
+            return redirect(url_for('login'))
+
+        raw_entries = get_all_color_analyses()
+        entries = _normalize_entries(raw_entries)
+
+        # ── Aggregate emotion scores across all analysed entries ───────────
+        emotion_totals = {}
+        emotion_counts = {}
+        sdoh_counts = {}
+        patient_palettes = {}   # patient_id → list of hex colors (last 5 entries)
+        timeline_data = []      # for the scatter plot: {patient, emotion, timestamp}
+
+        for e in entries:
+            ca = e.color_analysis or {}
+            scores = ca.get('emotion_scores', {})
+            dominant = ca.get('dominant_emotion')
+            ts = str(e.timestamp or '')[:10]
+
+            for emotion, score in scores.items():
+                emotion_totals[emotion] = emotion_totals.get(emotion, 0.0) + score
+                emotion_counts[emotion] = emotion_counts.get(emotion, 0) + 1
+
+            for tag in (e.sdoh_tags or []):
+                sdoh_counts[tag] = sdoh_counts.get(tag, 0) + 1
+
+            pid = e.patient_id or 'unknown'
+            patient_palettes.setdefault(pid, [])
+            for color_info in (ca.get('palette') or [])[:3]:
+                patient_palettes[pid].append(color_info.get('hex', '#ccc'))
+            patient_palettes[pid] = patient_palettes[pid][-15:]  # keep last 15
+
+            if dominant and ts:
+                timeline_data.append({'patient': pid, 'emotion': dominant, 'date': ts, 'score': scores.get(dominant, 0)})
+
+        # Average scores
+        emotion_avg = {e: round(emotion_totals[e] / emotion_counts[e], 3) for e in emotion_totals}
+        emotion_avg_sorted = sorted(emotion_avg.items(), key=lambda x: x[1], reverse=True)
+
+        return render_template(
+            'research.html',
+            entries=entries,
+            emotion_avg=emotion_avg_sorted,
+            sdoh_counts=sorted(sdoh_counts.items(), key=lambda x: x[1], reverse=True),
+            patient_palettes=patient_palettes,
+            timeline_data=timeline_data,
+            total_analysed=len(entries),
+        )
+
+    @app.route('/export/research.csv')
+    def export_research_csv():
+        user = current_user()
+        if not user or user.get('role') != 'admin':
+            return Response('Forbidden', status=403)
+
+        raw_entries = get_all_color_analyses()
+        entries = _normalize_entries(raw_entries)
+
+        output = io.StringIO()
+        writer = csv.writer(output)
+        writer.writerow([
+            'patient_id', 'filename', 'timestamp', 'emotion_self_report',
+            'sentiment_score', 'sdoh_tags', 'dominant_color_emotion',
+            'joy', 'sadness', 'anger', 'fear', 'surprise', 'disgust', 'trust', 'anticipation',
+            'storage_mode', 'github_repo_url'
+        ])
+        for e in entries:
+            ca = e.color_analysis or {}
+            scores = ca.get('emotion_scores', {})
+            writer.writerow([
+                e.patient_id, e.filename, e.timestamp, e.emotion,
+                e.sentiment_score, '|'.join(e.sdoh_tags or []),
+                ca.get('dominant_emotion', ''),
+                scores.get('joy', ''), scores.get('sadness', ''),
+                scores.get('anger', ''), scores.get('fear', ''),
+                scores.get('surprise', ''), scores.get('disgust', ''),
+                scores.get('trust', ''), scores.get('anticipation', ''),
+                e.storage_mode, e.github_repo_url or '',
+            ])
+
+        csv_bytes = output.getvalue().encode('utf-8')
+        return Response(
+            csv_bytes,
+            mimetype='text/csv',
+            headers={'Content-Disposition': 'attachment; filename="bhv_research_export.csv"'}
+        )
+
 
     @app.route('/entry/<entry_id>/edit', methods=['GET', 'POST'])
     def entry_edit(entry_id):
@@ -955,9 +1168,12 @@ def create_app(testing: bool = False, upload_folder: str = None):
             # If a new file was provided, replace the stored file
             if f and f.filename:
                 new_filename = secure_filename(f.filename)
+                if not _allowed_image(new_filename):
+                    flash('Only image files are accepted.')
+                    return redirect(url_for('entry_edit', entry_id=entry_id))
                 rel_path = os.path.join(entry.patient_id, new_filename)
                 data = f.read()
-                storage.save(rel_path, data, user_id=user.get('email'), action='edit')
+                local_storage.save(rel_path, data, user_id=user.get('email'), action='edit')
                 update_fields['filename'] = new_filename
 
             update_entry(entry_id, **update_fields)
@@ -977,7 +1193,7 @@ def create_app(testing: bool = False, upload_folder: str = None):
             flash('Forbidden')
             return redirect(url_for('index'))
         rel = os.path.join(patient_id, filename)
-        commits = storage.history(rel)
+        commits = local_storage.history(rel)
         return render_template('history.html', commits=commits, patient_id=patient_id, filename=filename)
 
 
@@ -990,8 +1206,8 @@ def create_app(testing: bool = False, upload_folder: str = None):
             flash('Forbidden')
             return redirect(url_for('index'))
         rel = os.path.join(patient_id, filename)
-        old_bytes = storage.get(rel, old_sha)
-        new_bytes = storage.get(rel, new_sha)
+        old_bytes = local_storage.get(rel, old_sha)
+        new_bytes = local_storage.get(rel, new_sha)
         try:
             old_text = old_bytes.decode('utf-8').splitlines()
         except Exception:
@@ -1015,7 +1231,7 @@ def create_app(testing: bool = False, upload_folder: str = None):
             flash('Forbidden')
             return redirect(url_for('index'))
         rel = os.path.join(patient_id, filename)
-        data = storage.get(rel, version)
+        data = local_storage.get(rel, version)
         return Response(data, mimetype='application/octet-stream', headers={'Content-Disposition': f'attachment; filename="{filename}"'})
 
 

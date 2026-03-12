@@ -21,8 +21,20 @@ if MONGO_URI:
     def get_user_by_email(email):
         return db.users.find_one({'email': email})
 
-    def create_entry(patient_id, filename, narrative, timestamp=None, stage_id=None, journey_id=None):
-        doc = {'patient_id': patient_id, 'filename': filename, 'narrative': narrative, 'timestamp': timestamp or datetime.utcnow()}
+    def create_entry(patient_id, filename, narrative, timestamp=None, stage_id=None, journey_id=None,
+                     emotion=None, sentiment_score=None, sdoh_tags=None,
+                     storage_mode='local', github_repo_url=None,
+                     color_analysis=None):
+        doc = {
+            'patient_id': patient_id, 'filename': filename, 'narrative': narrative,
+            'timestamp': timestamp or datetime.utcnow(),
+            'emotion': emotion,
+            'sentiment_score': sentiment_score,
+            'sdoh_tags': sdoh_tags or [],
+            'storage_mode': storage_mode,
+            'github_repo_url': github_repo_url,
+            'color_analysis': color_analysis,
+        }
         if stage_id: doc['stage_id'] = stage_id
         if journey_id: doc['journey_id'] = journey_id
         res = db.entries.insert_one(doc)
@@ -45,6 +57,14 @@ if MONGO_URI:
     def update_entry(entry_id, **kwargs):
         from bson import ObjectId
         db.entries.update_one({'_id': ObjectId(entry_id)}, {'$set': kwargs})
+
+    def update_entry_color_analysis(entry_id, color_analysis):
+        from bson import ObjectId
+        db.entries.update_one({'_id': ObjectId(entry_id)}, {'$set': {'color_analysis': color_analysis}})
+
+    def get_all_color_analyses():
+        """Return all entries that have a color_analysis result (for research dashboard)."""
+        return list(db.entries.find({'color_analysis': {'$ne': None}}))
 
     # Timeline / Journey Additions
     def create_disease_template(name, description="", created_by="admin"):
@@ -139,8 +159,20 @@ else:
         res = users.search(UserQ.email == email)
         return res[0] if res else None
 
-    def create_entry(patient_id, filename, narrative, timestamp=None, stage_id=None, journey_id=None):
-        doc = {'patient_id': patient_id, 'filename': filename, 'narrative': narrative, 'timestamp': (timestamp or datetime.utcnow()).isoformat()}
+    def create_entry(patient_id, filename, narrative, timestamp=None, stage_id=None, journey_id=None,
+                     emotion=None, sentiment_score=None, sdoh_tags=None,
+                     storage_mode='local', github_repo_url=None,
+                     color_analysis=None):
+        doc = {
+            'patient_id': patient_id, 'filename': filename, 'narrative': narrative,
+            'timestamp': (timestamp or datetime.utcnow()).isoformat(),
+            'emotion': emotion,
+            'sentiment_score': sentiment_score,
+            'sdoh_tags': sdoh_tags or [],
+            'storage_mode': storage_mode,
+            'github_repo_url': github_repo_url,
+            'color_analysis': color_analysis,
+        }
         if stage_id: doc['stage_id'] = stage_id
         if journey_id: doc['journey_id'] = journey_id
         return entries.insert(doc)
@@ -159,6 +191,13 @@ else:
 
     def update_entry(entry_id, **kwargs):
         entries.update(kwargs, doc_ids=[int(entry_id)])
+
+    def update_entry_color_analysis(entry_id, color_analysis):
+        entries.update({'color_analysis': color_analysis}, doc_ids=[int(entry_id)])
+
+    def get_all_color_analyses():
+        """Return all entries that have a color_analysis result (for research dashboard)."""
+        return [e for e in entries.all() if e.get('color_analysis')]
 
     # Timeline / Journey Additions
     def create_disease_template(name, description="", created_by="admin"):

@@ -146,7 +146,7 @@
                             method="POST" style="margin: 0;">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                             <button type="submit" class="btn btn-primary btn-sm"
-                                style="background:var(--sage-dark); color:white;">Finish Journey 🎉</button>
+                                style="background:var(--sage-dark); color:white;">Finish Journey</button>
                         </form>
                     </div>
                     {% endif %}
@@ -193,7 +193,7 @@
     {% if current_journey.completed %}
     <div class="roadmap-node completed-node" style="animation-delay: {{ stages|length * 150 }}ms;">
         <div class="node-marker">
-            <div class="node-dot" style="background:var(--sage-dark); color:white;">★</div>
+            <div class="node-dot" style="background:var(--sage-dark); color:white;">Done</div>
         </div>
         <div class="board-wrapper">
             <div class="node-board active-board">

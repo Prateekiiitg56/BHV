@@ -215,3 +215,20 @@ test_log.txt
 test_log_ascii.txt
 pytest_out.txt
 diff.patch
+
+out.log
+emoji_results.txt
+user_feedback.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local database files
+db_backup.json

@@ -280,7 +280,7 @@
 
     <!-- Header -->
     <div class="admin-header">
-      <h1>⚙️ Admin Control Panel</h1>
+      <h1> Admin Control Panel</h1>
       <p>Full system overview — manage users, journeys, records, and clinical pathways.</p>
     </div>
 
@@ -342,10 +342,10 @@
 
     <!-- Tabs -->
     <div class="admin-tabs" id="admin-tabs">
-      <button class="admin-tab active" data-tab="users">👥 Users</button>
-      <button class="admin-tab" data-tab="journeys" id="journeys-tab">🗺 Journeys</button>
-      <button class="admin-tab" data-tab="records">📄 Records</button>
-      <button class="admin-tab" data-tab="tools">🔧 Tools</button>
+      <button class="admin-tab active" data-tab="users"> Users</button>
+      <button class="admin-tab" data-tab="journeys" id="journeys-tab"> Journeys</button>
+      <button class="admin-tab" data-tab="records"> Records</button>
+      <button class="admin-tab" data-tab="tools"> Tools</button>
     </div>
 
     <!-- ══ Users Panel ══════════════════════════════════════════════════════ -->
@@ -489,13 +489,13 @@
     <div class="admin-panel" id="panel-tools">
       <div class="tools-grid">
         <div class="tool-card">
-          <h3>🗂 Clinical Pathways</h3>
+          <h3> Clinical Pathways</h3>
           <p>Define and manage structured disease templates and treatment stages for patient assignment.</p>
           <a href="{{ url_for('admin_templates') }}" class="btn btn-primary">Manage Templates</a>
         </div>
 
         <div class="tool-card">
-          <h3>🔗 Assign Journey to Patient</h3>
+          <h3> Assign Journey to Patient</h3>
           <p>Assign a predefined clinical pathway to a specific patient email.</p>
           <form method="POST" action="{{ url_for('assign_journey') }}"
             style="display: flex; flex-direction:column; gap: .75rem;">

@@ -1,0 +1,617 @@
+{% extends 'base.html' %}
+{% block title %}Health Insights — Behavioral Health Vault{% endblock %}
+{% block content %}
+
+<style>
+    .insight-hero {
+        background: linear-gradient(135deg, var(--teal) 0%, #1a6b6b 100%);
+        border-radius: 16px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 2rem;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .insight-hero h1 {
+        margin: 0 0 0.25rem;
+        font-size: 1.75rem;
+        font-weight: 800;
+        color: #fff;
+    }
+
+    .insight-hero p {
+        margin: 0;
+        opacity: 0.85;
+        font-size: 0.95rem;
+    }
+
+    .insight-hero .badge {
+        background: rgba(255, 255, 255, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 999px;
+        padding: 6px 18px;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #fff;
+        white-space: nowrap;
+    }
+
+    .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+
+    .stat-card {
+        background: var(--card-bg, #1a1f2e);
+        border: 1px solid var(--c-border);
+        border-radius: 12px;
+        padding: 1.25rem 1rem;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    }
+
+    .stat-card .emotion-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: capitalize;
+        color: var(--slate-500);
+        margin-bottom: 0.4rem;
+        letter-spacing: 0.04em;
+    }
+
+    .stat-card .emotion-value {
+        font-size: 1.75rem;
+        font-weight: 800;
+        line-height: 1;
+        margin-bottom: 0.25rem;
+    }
+
+    .stat-card .bar-track {
+        height: 4px;
+        border-radius: 4px;
+        background: var(--c-border);
+        margin-top: 0.6rem;
+        overflow: hidden;
+    }
+
+    .stat-card .bar-fill {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.8s ease;
+    }
+
+    .charts-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    @media (max-width: 700px) {
+        .charts-row {
+            grid-template-columns: 1fr;
+        }
+    }
+
+    .chart-card {
+        background: var(--card-bg, #1a1f2e);
+        border: 1px solid var(--c-border);
+        border-radius: 14px;
+        padding: 1.5rem;
+    }
+
+    .chart-card h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0 0 1.25rem;
+        color: var(--slate-700);
+    }
+
+    .chart-wrap {
+        position: relative;
+        height: 240px;
+    }
+
+    .palette-card {
+        background: var(--card-bg, #1a1f2e);
+        border: 1px solid var(--c-border);
+        border-radius: 14px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .palette-card h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0 0 1.25rem;
+        color: var(--slate-700);
+    }
+
+    .palette-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--c-border);
+    }
+
+    .palette-row:last-child {
+        border-bottom: none;
+    }
+
+    .palette-label {
+        min-width: 180px;
+        font-size: 0.82rem;
+        color: var(--slate-500);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .swatch {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        flex-shrink: 0;
+        transition: transform 0.15s;
+        cursor: default;
+    }
+
+    .swatch:hover {
+        transform: scale(1.35);
+    }
+
+    .journal-card {
+        background: var(--card-bg, #1a1f2e);
+        border: 1px solid var(--c-border);
+        border-radius: 14px;
+        padding: 1.5rem;
+        overflow-x: auto;
+    }
+
+    .journal-card h3 {
+        font-size: 1rem;
+        font-weight: 700;
+        margin: 0;
+        color: var(--slate-700);
+    }
+
+    .journal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+    }
+
+    .search-box {
+        padding: 7px 14px;
+        border: 1px solid var(--c-border);
+        border-radius: 8px;
+        font-size: 0.85rem;
+        background: transparent;
+        color: inherit;
+        width: 220px;
+        outline: none;
+    }
+
+    .search-box:focus {
+        border-color: var(--teal);
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.84rem;
+    }
+
+    thead tr {
+        border-bottom: 2px solid var(--c-border);
+    }
+
+    th {
+        padding: 10px 12px;
+        color: var(--slate-500);
+        font-weight: 600;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    tbody tr {
+        border-bottom: 1px solid var(--c-border);
+        transition: background 0.15s;
+    }
+
+    tbody tr:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+
+    tbody tr:last-child {
+        border-bottom: none;
+    }
+
+    td {
+        padding: 10px 12px;
+        vertical-align: middle;
+    }
+
+    .mood-badge {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 999px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        background: rgba(38, 166, 154, 0.15);
+        color: var(--teal);
+    }
+
+    .life-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.74rem;
+        font-weight: 500;
+        background: var(--c-border);
+        color: var(--slate-600);
+        margin: 2px 2px 2px 0;
+    }
+
+    .empty-chart {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 200px;
+        color: var(--slate-400);
+        font-size: 0.9rem;
+        text-align: center;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .empty-chart svg {
+        opacity: 0.3;
+    }
+</style>
+
+<section class="section">
+    <div class="container" style="max-width:1140px;">
+
+        <!-- Hero Header -->
+        <div class="insight-hero">
+            <div>
+                <h1>Health Insights Overview</h1>
+                <p>Visual mood patterns &middot; Life context factors &middot; Community health trends</p>
+            </div>
+            <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+                <span class="badge">{{ total_analysed }} records analysed</span>
+                <a href="{{ url_for('export_research_csv') }}"
+                    style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); border-radius:8px; padding:8px 18px; color:#fff; text-decoration:none; font-size:0.875rem; font-weight:600; transition:background 0.2s;"
+                    onmouseover="this.style.background='rgba(255,255,255,0.25)'"
+                    onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                    Download CSV
+                </a>
+            </div>
+        </div>
+
+        {% if total_analysed == 0 %}
+        <!-- Empty state -->
+        <div
+            style="background:var(--card-bg,#1a1f2e); border:1px solid var(--c-border); border-radius:14px; text-align:center; padding:4rem 2rem;">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="1.5"
+                style="opacity:0.4; margin-bottom:1.25rem;">
+                <path
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            <h3 style="margin-bottom:0.5rem; font-size:1.2rem;">No data yet</h3>
+            <p style="color:var(--slate-500); max-width:380px; margin:0 auto 1.5rem;">Once patients upload images with
+                descriptions, mood and life factor analysis will appear here automatically.</p>
+            <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload First Image</a>
+        </div>
+
+        {% else %}
+
+        <!-- Mood stat cards -->
+        <div class="stat-grid">
+            {% set emotion_colors = {
+            'joy': '#FFD600', 'sadness': '#4A90D9', 'anger': '#E53935',
+            'fear': '#7B1FA2', 'surprise': '#FF7043', 'disgust': '#558B2F',
+            'trust': '#26A69A', 'anticipation': '#FF8F00'
+            } %}
+            {% for emotion, avg in emotion_avg %}
+            {% set color = emotion_colors.get(emotion, '#90A4AE') %}
+            <div class="stat-card">
+                <div class="emotion-name">{{ emotion }}</div>
+                <div class="emotion-value" style="color:{{ color }};">{{ (avg * 100)|round(1) }}%</div>
+                <div style="font-size:0.7rem; color:var(--slate-400);">mood intensity</div>
+                <div class="bar-track">
+                    <div class="bar-fill" style="width:{{ (avg * 100)|round(0) }}%; background:{{ color }};"></div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Charts row -->
+        <div class="charts-row">
+            <!-- Most Common Moods - pure CSS horizontal bar chart -->
+            <div class="chart-card">
+                <h3>Most Common Moods</h3>
+                <div style="display:flex; flex-direction:column; gap:0.75rem; padding-top:0.25rem;">
+                    {% set emotion_colors = {
+                    'joy': '#FFD600', 'sadness': '#4A90D9', 'anger': '#E53935',
+                    'fear': '#7B1FA2', 'surprise': '#FF7043', 'disgust': '#558B2F',
+                    'trust': '#26A69A', 'anticipation': '#FF8F00'
+                    } %}
+                    {% set max_val = emotion_avg[0][1] if emotion_avg else 1 %}
+                    {% for emotion, avg in emotion_avg %}
+                    {% set color = emotion_colors.get(emotion, '#90A4AE') %}
+                    {% set pct = ((avg / max_val) * 100) | round(0) | int %}
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                        <span
+                            style="min-width:90px; font-size:0.8rem; font-weight:600; text-transform:capitalize; color:var(--slate-600);">{{
+                            emotion }}</span>
+                        <div
+                            style="flex:1; background:var(--c-border); border-radius:99px; height:10px; overflow:hidden;">
+                            <div
+                                style="height:100%; width:{{ pct }}%; background:{{ color }}; border-radius:99px; transition:width 0.8s ease;">
+                            </div>
+                        </div>
+                        <span
+                            style="min-width:38px; font-size:0.78rem; font-weight:700; color:{{ color }}; text-align:right;">{{
+                            (avg * 100)|round(1) }}%</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Life Factors - pure CSS grid chart -->
+            <div class="chart-card">
+                <h3>Life Factors Mentioned</h3>
+                {% if sdoh_counts %}
+                {% set sdoh_colors = ['#26A69A','#4A90D9','#FF8F00','#E53935','#7B1FA2','#558B2F','#FF7043','#90A4AE']
+                %}
+                {% set max_sdoh = sdoh_counts[0][1] if sdoh_counts else 1 %}
+                <div style="display:flex; flex-direction:column; gap:0.75rem; padding-top:0.25rem;">
+                    {% for tag, count in sdoh_counts %}
+                    {% set color = sdoh_colors[loop.index0 % 8] %}
+                    {% set pct = ((count / max_sdoh) * 100) | round(0) | int %}
+                    <div style="display:flex; align-items:center; gap:0.75rem;">
+                        <span
+                            style="min-width:110px; font-size:0.8rem; font-weight:600; text-transform:capitalize; color:var(--slate-600);">{{
+                            tag }}</span>
+                        <div
+                            style="flex:1; background:var(--c-border); border-radius:99px; height:10px; overflow:hidden;">
+                            <div
+                                style="height:100%; width:{{ pct }}%; background:{{ color }}; border-radius:99px; transition:width 0.8s ease;">
+                            </div>
+                        </div>
+                        <span
+                            style="min-width:24px; font-size:0.78rem; font-weight:700; color:{{ color }}; text-align:right;">{{
+                            count }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div
+                    style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:200px; color:var(--slate-400); text-align:center; gap:0.75rem;">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                        style="opacity:0.4;">
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M12 8v4m0 4h.01" />
+                    </svg>
+                    <div>
+                        <div style="font-weight:600; margin-bottom:0.25rem;">Nothing detected yet</div>
+                        <small>Life factors are picked up from the text descriptions patients write with their
+                            photos.</small>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Visual Color Trends -->
+        <div class="palette-card">
+            <h3>Visual Color Trends by Patient</h3>
+            <!-- Color legend -->
+            <div
+                style="margin-bottom:1.25rem; padding:0.875rem 1rem; background:rgba(38,166,154,0.07); border:1px solid rgba(38,166,154,0.2); border-radius:10px;">
+                <div
+                    style="font-size:0.78rem; font-weight:700; color:var(--slate-500); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:0.6rem;">
+                    What do the colours mean?</div>
+                <div style="display:flex; flex-wrap:wrap; gap:0.6rem 1.25rem;">
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#FFD600;"></span>
+                        Joy</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#4A90D9;"></span>
+                        Sadness</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#E53935;"></span>
+                        Anger</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#7B1FA2;"></span>
+                        Fear</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#FF7043;"></span>
+                        Surprise</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#558B2F;"></span>
+                        Disgust</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#26A69A;"></span>
+                        Trust</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#FF8F00;"></span>
+                        Anticipation</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#fff; border:1px solid #ddd;"></span>
+                        White = Peace</span>
+                    <span
+                        style="font-size:0.76rem; color:var(--slate-600); display:flex; align-items:center; gap:5px;"><span
+                            style="display:inline-block; width:11px; height:11px; border-radius:3px; background:#000;"></span>
+                        Black = Fear</span>
+                </div>
+                <div style="font-size:0.74rem; color:var(--slate-400); margin-top:0.6rem; line-height:1.4;">
+                    Colours are extracted from pixels. <strong>White backgrounds</strong> signify peace/neutrality.
+                    <strong>Vivid colours</strong> carry stronger emotional weight than muted ones.
+                </div>
+            </div>
+            {% if patient_palettes %}
+            {% for patient, colors in patient_palettes.items() %}
+            <div class="palette-row">
+                <span class="palette-label" title="{{ patient }}">{{ patient }}</span>
+                <div style="display:flex; gap:5px; flex-wrap:wrap;">
+                    {% for hex_color in colors %}
+                    <div class="swatch" title="{{ hex_color }}" style="background:{{ hex_color }};"></div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div style="color:var(--slate-400); font-size:0.9rem; padding:1rem 0;">No uploaded images with color data
+                yet.</div>
+            {% endif %}
+        </div>
+
+        <!-- Individual Journal Summary table -->
+        <div class="journal-card">
+            <div class="journal-header">
+                <h3>Individual Journal Summary</h3>
+                <div style="display:flex; align-items:center; gap:0.75rem;">
+                    <input type="text" id="entry-search" placeholder="Search patient, mood, date…" class="search-box"
+                        oninput="filterTable(this.value)">
+                    <span id="search-count"
+                        style="font-size:0.8rem; color:var(--slate-400); white-space:nowrap;"></span>
+                </div>
+            </div>
+            <table id="research-table">
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>File</th>
+                        <th>User Mood</th>
+                        <th>AI Mood</th>
+                        <th>Colors</th>
+                        <th>Life Factors</th>
+                        <th>Writing Tone</th>
+                        <th>Saved As</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in entries %}
+                    {% set ca = e.color_analysis or {} %}
+                    {% set dom_emotion = ca.get('dominant_emotion', '') %}
+                    {% set palette = ca.get('palette', []) %}
+                    <tr class="entry-row">
+                        <td style="color:var(--slate-500); max-width:130px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                            title="{{ e.patient_id }}">{{ e.patient_id | truncate(20) }}</td>
+                        <td style="color:var(--slate-600);">{{ e.filename | truncate(18) }}</td>
+                        <td>
+                            {% if e.emotion %}
+                            <span class="mood-badge">{{ e.emotion | capitalize }}</span>
+                            {% else %}
+                            <span style="color:var(--slate-400);">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if dom_emotion %}
+                            <span style="font-weight:600; font-size:0.85rem; color:var(--slate-700);">{{ dom_emotion |
+                                capitalize }}</span>
+                            {% else %}
+                            <span style="color:var(--slate-400);">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div style="display:flex; gap:3px; flex-wrap:wrap;">
+                                {% for color_info in palette[:5] %}
+                                <div class="swatch" style="width:20px; height:20px; background:{{ color_info.hex }};"
+                                    title="{{ color_info.hex }}"></div>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if e.sdoh_tags %}
+                            {% for tag in e.sdoh_tags %}
+                            <span class="life-tag">{{ tag }}</span>
+                            {% endfor %}
+                            {% else %}
+                            <span style="color:var(--slate-400);">—</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if e.sentiment_score is not none %}
+                            {% set s = e.sentiment_score %}
+                            <span
+                                style="font-size:0.82rem; font-weight:600; color:{% if s > 0.1 %}var(--teal){% elif s < -0.1 %}#E53935{% else %}var(--slate-500){% endif %};">
+                                {% if s > 0.1 %}Positive{% elif s < -0.1 %}Negative{% else %}Neutral{% endif %} </span>
+                                    {% else %}
+                                    <span style="color:var(--slate-400);">—</span>
+                                    {% endif %}
+                        </td>
+                        <td>
+                            {% if e.storage_mode == 'github' and e.github_repo_url %}
+                            <a href="{{ e.github_repo_url }}" target="_blank"
+                                style="font-size:0.78rem; color:var(--teal); text-decoration:none; font-weight:600;">GitHub</a>
+                            {% else %}
+                            <span style="font-size:0.78rem; color:var(--slate-400);">Local</span>
+                            {% endif %}
+                        </td>
+                        <td style="color:var(--slate-500); white-space:nowrap;">{{ (e.timestamp | string)[:10] if
+                            e.timestamp else '—' }}</td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="9" style="text-align:center; color:var(--slate-400); padding:2rem;">No entries
+                            found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% endif %}
+    </div>
+</section>
+
+<script>
+    function filterTable(q) {
+        var rows = document.querySelectorAll('#research-table .entry-row');
+        var lq = q.toLowerCase();
+        rows.forEach(function (row) {
+            row.style.display = row.textContent.toLowerCase().includes(lq) ? '' : 'none';
+        });
+    }
+    // Live count update
+    var searchInput = document.getElementById('entry-search');
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            var visible = document.querySelectorAll('#research-table .entry-row:not([style*="none"])');
+            var total = document.querySelectorAll('#research-table .entry-row');
+            var countEl = document.getElementById('search-count');
+            if (countEl) countEl.textContent = visible.length + ' of ' + total.length;
+        });
+    }
+</script>
+{% endblock %}

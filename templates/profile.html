@@ -26,29 +26,31 @@
     <h3 style="margin:2rem 0 1rem">Upload History</h3>
 
     {% if entries %}
-      <div class="entry-grid">
+    <div class="entry-grid">
       {% for e in entries %}
-        <div class="entry-card">
-          <div class="entry-card__title">{{ e.filename }}</div>
-          <div class="entry-card__meta">
-            {% if e.timestamp %}Uploaded {{ e.timestamp }}{% endif %}
-          </div>
-          {% if e.narrative %}
-            <div class="entry-card__narrative">"{{ e.narrative }}"</div>
-          {% endif %}
-          <div class="entry-card__actions">
-            <a class="btn btn-sm" href="{{ url_for('file_version', patient_id=user.email, filename=e.filename) }}">Download</a>
-            <a class="btn btn-sm btn-secondary" href="{{ url_for('entry_edit', entry_id=e.id) }}">Edit</a>
-            <a class="btn btn-sm btn-secondary" href="{{ url_for('history', patient_id=user.email, filename=e.filename) }}">History</a>
-          </div>
+      <div class="entry-card">
+        <div class="entry-card__title">{{ e.filename }}</div>
+        <div class="entry-card__meta">
+          {% if e.timestamp %}Uploaded {{ e.timestamp }}{% endif %}
         </div>
+        {% if e.narrative %}
+        <div class="entry-card__narrative">"{{ e.narrative }}"</div>
+        {% endif %}
+        <div class="entry-card__actions">
+          <a class="btn btn-sm"
+            href="{{ url_for('file_version', patient_id=user.email, filename=e.filename) }}">Download</a>
+          <a class="btn btn-sm btn-secondary" href="{{ url_for('entry_edit', entry_id=e.id) }}">Edit</a>
+          <a class="btn btn-sm btn-secondary"
+            href="{{ url_for('history', patient_id=user.email, filename=e.filename) }}">History</a>
+        </div>
+      </div>
       {% endfor %}
-      </div>
+    </div>
     {% else %}
-      <div class="empty-state">
-        <p>No uploads yet. Start your recovery journey!</p>
-        <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Your First Record</a>
-      </div>
+    <div class="empty-state">
+      <p>No uploads yet. Start your recovery journey!</p>
+      <a href="{{ url_for('upload') }}" class="btn btn-primary">Upload Your First Record</a>
+    </div>
     {% endif %}
 
     {% else %}

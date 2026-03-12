@@ -18,4 +18,7 @@ tinydb>=4.7
 # LLM interaction
 openai>=1.0
 
+# Image processing for fuzzy color-emotion analysis
+Pillow>=10.0
+
 gunicorn>=21.0

@@ -15,7 +15,7 @@
 
             <!-- Create Form -->
             <div class="card" style="position: sticky; top: 90px;">
-                <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem;">➕ Create New Template</h3>
+                <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem;">Create New Template</h3>
                 <form method="POST">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div style="margin-bottom: 1rem;">
@@ -32,7 +32,7 @@
 
             <!-- Existing Templates -->
             <div>
-                <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem;">📋 Existing Templates</h3>
+                <h3 style="font-size:1rem; font-weight:600; margin-bottom:1rem;">Existing Templates</h3>
                 {% if templates %}
                 {% for t in templates %}
                 <div class="card" style="margin-bottom: 1rem;">
@@ -47,7 +47,7 @@
                         </div>
                         <!-- Template ID badge — click to copy -->
                         <button
-                            onclick="navigator.clipboard.writeText('{{ t.id }}'); this.textContent='✅ Copied!'; setTimeout(()=>this.textContent='ID: {{ t.id }}',1500);"
+                            onclick="navigator.clipboard.writeText('{{ t.id }}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='ID: {{ t.id }}',1500);"
                             style="background:var(--c-primary-soft); color:var(--c-primary); border:1px solid rgba(92,135,102,.3);
                      padding:4px 14px; border-radius:999px; font-size:.75rem; font-weight:700;
                      cursor:pointer; font-family:monospace; white-space:nowrap; flex-shrink:0;"

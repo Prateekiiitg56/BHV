@@ -1,19 +1,81 @@
 # BHV: Behavioral Health Vault
 
-The goal of this project is to provide a digitization approach to record the journey of recovery of people with serious mental illnesses and other social determinants. BHV (pronounced Beehive or Behave) aims to complement traditional Electronic Health Records (EHRs) by storing patient-provided images (photographs and scanned drawings) along with associated textual narratives, which may be provided by the patient or recorded by a social worker during an interview.
+The Behavioral Health Vault (BHV) is a minimalist, secure, and professional platform designed to record the recovery journeys of individuals with serious mental illnesses. It complements traditional Electronic Health Records (EHRs) by storing patient-provided images (photographs, drawings) alongside their associated textual narratives.
 
-BHV is a minimal, Python-based application that enables healthcare networks to store and retrieve patient-provided images.
+## Key Features
 
-It provides them access to upload, view, and edit their own images and narratives.
+- **Immutable Storage**: Every file upload creates a version-controlled Git commit, ensuring an audit trail of changes.
+- **Narrative Tracking**: Associated text narratives for every image or entry.
+- **Visual Analysis**: Built-in color analysis algorithm to track emotional trends over time.
+- **Recovery Journeys**: Structured clinical pathways to guide and track patient progress.
+- **Research Dashboard**: Admin-level insights into population-wide mood trends and clinical data.
+- **Secure Authentication**: Traditional email/password login and quick Google OAuth integration.
+- **Zero-Setup Deployment**: Uses an embedded TinyDB by default but can scale to MongoDB for production.
 
-It also provides admin-level access for system administrators to view the entire ecosystem, upload images on behalf of users, along with the narrative, edit images on behalf of users, and delete images or narrations on behalf of users or as a moderation action.
+---
 
-The system should be secure. But the signup process should be pretty straightforward. Email-based signups are ok. 
+## Quick Start
 
-Log-ins should be straightforward. A simple username and password should be sufficient.
+### 1. Prerequisites
+- Python 3.8+
+- Git
 
-The system should avoid unnecessary bloat to enable easy installation in healthcare networks.
+### 2. Setup
+```bash
+# Clone the repository
+git clone <repo-url>
+cd BHV
 
-The front-end should be kept minimal to allow the entire system to be run from a single command (rather than expecting the front-end, backend, and database to be run separately).
+# Create and activate a virtual environment
+python -m venv .venv
+# Windows:
+.venv\Scripts\Activate.ps1
+# Linux/macOS:
+source .venv/bin/activate
 
-The storage of the images could be in a file system with an index to retrieve them easily. The index itself could be in a database to allow easy queries.
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 3. Configuration
+Copy the template to create your environment file:
+```bash
+cp .env.example .env
+```
+*(Optionally edit `.env` for MongoDB or Google OAuth settings. The app works out-of-the-box without them using TinyDB fallback.)*
+
+### 4. Running the App
+**Development Mode:**
+```bash
+python run.py
+```
+**Production Mode:**
+```bash
+gunicorn app:app --config gunicorn.conf.py
+```
+
+### 5. Access
+Visit [http://127.0.0.1:5000](http://127.0.0.1:5000) in your browser.
+
+---
+
+## Documentation
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)**: Guidelines for contributing to BHV.
+- **[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)**: Standards for behavior in this project.
+- **[FEATURES_IMPLEMENTED.md](FEATURES_IMPLEMENTED.md)**: Detailed log of current capabilities.
+
+---
+
+## Technical Stack
+
+- **Backend**: Flask (Python)
+- **Database**: TinyDB (embedded) or MongoDB
+- **Versioning**: Git (via GitPython)
+- **Frontend**: Vanilla HTML/JS with a clean, professional "Alaska" theme (Sage Green palette).
+- **Deployment**: Gunicorn / Procfile-ready for platforms like Render.
+
+---
+
+## License
+Licensed under the [MIT License](LICENSE).
